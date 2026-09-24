@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Stage 3 · 未知的已知 —— 三组方向给你挑</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --panel2:#1c2230; --line:#2a3140; --line2:#3a4256;
+    --fg:#e6edf3; --dim:#8b949e; --dim2:#6e7681;
+    --ok:#3fb950; --warn:#d29922; --hot:#f0883e; --crit:#f85149; --accent:#58a6ff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+       font:14px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+  .wrap{max-width:1120px;margin:0 auto;padding:32px 24px 80px}
+  h1{font-size:22px;margin:0 0 4px}
+  .sub{color:var(--dim);margin-bottom:28px}
+  h2{font-size:16px;margin:36px 0 4px;padding-top:20px;border-top:1px solid var(--line)}
+  h2 .tag{font-size:11px;color:var(--dim2);font-weight:400;margin-left:8px}
+  h3{font-size:14px;margin:20px 0 10px;color:var(--accent)}
+  .note{color:var(--dim);font-size:12.5px;margin:6px 0 14px}
+  .grid{display:grid;gap:14px}
+  .g2{grid-template-columns:1fr 1fr}
+  .g4{grid-template-columns:repeat(4,1fr)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
+  .card h4{margin:0 0 8px;font-size:13px;font-weight:600}
+  .label{font-size:11px;color:var(--dim2);letter-spacing:.04em;text-transform:uppercase}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line)}
+  th{color:var(--dim);font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+  code{background:#0b0f14;border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:12px}
+  .pick{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .chip{border:1px solid var(--line2);background:var(--panel2);color:var(--fg);border-radius:20px;
+        padding:5px 13px;font-size:12.5px;cursor:pointer;user-select:none;transition:.12s}
+  .chip:hover{border-color:var(--accent)}
+  .chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#04101f;font-weight:600}
+  .bar{height:8px;border-radius:4px;background:#0b0f14;border:1px solid var(--line);overflow:hidden;margin-top:5px}
+  .bar > i{display:block;height:100%}
+  .bot{display:block}
+  .agent{display:flex;gap:12px;align-items:center;padding:11px 12px;border:1px solid var(--line);
+         border-radius:10px;background:var(--panel);margin-bottom:9px}
+  .agent .meta{flex:1;min-width:0}
+  .agent .nm{font-weight:600;font-size:13px}
+  .agent .tk{color:var(--dim);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pct{font-variant-numeric:tabular-nums;font-weight:600;font-size:13px;min-width:52px;text-align:right}
+  .st{font-size:11.5px;font-weight:600}
+  .s-ok{color:var(--ok)} .s-warn{color:var(--warn)} .s-hot{color:var(--hot)} .s-crit{color:var(--crit)}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--dim);margin-top:8px}
+  .legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px}
+  .tl{font-size:12.5px}
+  .tl li{margin-bottom:6px;color:var(--dim)}
+  .tl b{color:var(--fg);font-weight:600}
+  .tl .ev{display:inline-block;font-size:11px;padding:1px 6px;border-radius:4px;background:var(--panel2);
+          border:1px solid var(--line2);margin-right:6px;color:var(--fg)}
+  .out{background:#0b0f14;border:1px solid var(--line);border-radius:10px;padding:12px;margin-top:14px;
+       font:12px/1.7 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;color:var(--dim)}
+  button.copy{background:var(--accent);color:#04101f;border:0;border-radius:7px;padding:8px 16px;
+              font-size:13px;font-weight:700;cursor:pointer;margin-top:10px}
+  .hint{color:var(--dim2);font-size:12px;margin-top:7px}
+  svg{max-width:100%;height:auto;display:block}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Stage 3 · 未知的已知</h1>
+<div class="sub">下面全都是**假数据**（人物、任务、百分比都是我编的，但形态是真实的）。你只需要对每一组方向做「要 / 不要 / 改一改」。最后一键生成你要回我的话。</div>
+
+<!-- ============ 1. AGENT 状态精灵 ============ -->
+<h2>一、Agent 状态精灵 <span class="tag">同一个 agent 的四档状态</span></h2>
+<div class="note">阈值就是你定的：<code>&lt;10% 轻松</code> · <code>&ge;10% 累</code> · <code>&ge;20% 超累</code> · <code>&ge;40% 要累死了</code>（上下文占用百分比，可调）。下面是同一只 bot 的四档。</div>
+
+<div class="grid g4" id="sprites"></div>
+
+<h3>方向 A · 可爱像素小工蜂</h3>
+<div class="note">走"人味/角色感"：状态一眼可读，适合群聊里当头像用，美术发挥空间大（可做呼吸、眨眼、冒烟等循环动效）。风险：占用多、在密集列表里会显得吵。</div>
+
+<h3>方向 B · 硬核仪表盘</h3>
+<div class="note">同一个数据换一种语言：不做角色，做指标。占用小、信息密度高、适合 10 个 agent 同屏。风险：情感表达弱，"累到垮台"这件事就不那么戳人。</div>
+<div class="grid g4" id="gauges"></div>
+
+<div class="pick" data-group="sprite">
+  <span class="label" style="align-self:center;margin-right:4px">选：</span>
+  <button class="chip" data-v="A">A 可爱像素</button>
+  <button class="chip" data-v="B">B 硬核仪表盘</button>
+  <button class="chip" data-v="both">两个都要（群聊用 A、仪表盘用 B）</button>
+  <button class="chip" data-v="neither">都不要</button>
+</div>
+<div class="pick" data-group="anim">
+  <span class="label" style="align-self:center;margin-right:4px">动效：</span>
+  <button class="chip" data-v="idle">只做循环小动（呼吸/眨眼）</button>
+  <button class="chip" data-v="trans">状态切换时播一次性动画</button>
+  <button class="chip" data-v="static">纯静态图（省事）</button>
+</div>
+
+<!-- ============ 2. 派发网络图 ============ -->
+<h2>二、Agent 派发网络 <span class="tag">谁派了谁，一眼看清</span></h2>
+<div class="note">真实数据形态：常驻成员被 @ 后自主 handoff，派遣成员完成后退群。连线 = 派发关系；节点颜色 = 当前状态。</div>
+
+<div class="grid g2">
+  <div class="card">
+    <h4>方向 A · 网络图（星系式）</h4>
+    <div class="note" style="margin-bottom:8px">中心是被派单的常驻成员，外围是它派出的成员，可以继续往外长。适合体现"涌现"。</div>
+    <svg viewBox="0 0 400 250" id="netA"></svg>
+    <div class="legend">
+      <span><i style="background:var(--ok)"></i>轻松</span>
+      <span><i style="background:var(--warn)"></i>累</span>
+      <span><i style="background:var(--hot)"></i>超累</span>
+      <span><i style="background:var(--crit)"></i>要累死了</span>
+      <span><i style="background:var(--dim2)"></i>已回收（灰）</span>
+    </div>
+  </div>
+  <div class="card">
+    <h4>方向 B · 泳道看板（线性式）</h4>
+    <div class="note" style="margin-bottom:8px">按"任务阶段"分列，卡片是 agent。适合讲清"一个任务怎么流过几个 agent"。</div>
+    <div class="grid" style="grid-template-columns:repeat(4,1fr);gap:8px" id="board"></div>
+  </div>
+</div>
+
+<div class="pick" data-group="net">
+  <span class="label" style="align-self:center;margin-right:4px">选：</span>
+  <button class="chip" data-v="A">A 网络图</button>
+  <button class="chip" data-v="B">B 泳道看板</button>
+  <button class="chip" data-v="both">两个都要（上下并排）</button>
+  <button class="chip" data-v="neither">都不要</button>
+</div>
+
+<!-- ============ 3. 核心对比图 ============ -->
+<h2>三、核心对比图 <span class="tag">这张可能是你答辩最重要的一张</span></h2>
+<div class="note">同一条时间线，两种治理方式下的上下文占用：**锯齿 = auto-compact（在同一个窗口里反复压缩，意图被有损滚动，越压越糊）**；**方波 = handoff（任务边界处直接换窗口，占用归零，只带一份交接文档）**。</div>
+<div class="card">
+  <svg viewBox="0 0 1000 300" id="chart"></svg>
+  <div class="legend">
+    <span><i style="background:var(--hot)"></i>auto-compact：压缩后仍留在同一窗口（细节丢失）</span>
+    <span><i style="background:var(--ok)"></i>handoff：新窗口 + 交接文档（零历史）</span>
+    <span><i style="background:var(--crit)"></i>压缩点</span>
+    <span><i style="background:var(--accent)"></i>handoff 点</span>
+  </div>
+</div>
+
+<div class="pick" data-group="chart">
+  <span class="label" style="align-self:center;margin-right:4px">这张图：</span>
+  <button class="chip" data-v="keep">要，就按这个讲</button>
+  <button class="chip" data-v="more">要，但还要加"同一任务多 agent 并行 vs 单 agent"的对比</button>
+  <button class="chip" data-v="less">要，但简化成两张小图</button>
+  <button class="chip" data-v="drop">不要</button>
+</div>
+
+<!-- ============ 4. 事件流 ============ -->
+<h2>四、群里的时间轴 <span class="tag">把看不见的治理过程变成看得见的事件</span></h2>
+<div class="card">
+  <ul class="tl" style="margin:0;padding-left:0;list-style:none" id="timeline"></ul>
+</div>
+<div class="pick" data-group="tl">
+  <span class="label" style="align-self:center;margin-right:4px">事件流：</span>
+  <button class="chip" data-v="chat">作为特殊卡片直接发进群聊（所有人都看到）</button>
+  <button class="chip" data-v="dash">只显示在仪表盘里，群里保持干净</button>
+  <button class="chip" data-v="both">两边都要，群里只留一行摘要</button>
+</div>
+
+<!-- ============ 5. 决策汇总 ============ -->
+<h2>五、你的选择（会自动生成一段话）</h2>
+<div class="note">点上面的 chip 选择；改好的话直接点复制，粘回给 Mac 端的 agent 就行。</div>
+<div class="out" id="out">（还没选）</div>
+<button class="copy" id="copyBtn">复制这段话</button>
+<div class="hint">没提到的项默认按我写的走，不用逐条表态。</div>
+
+</div>
+
+<script>
+// ---------- 状态精灵（像素风，用 rect 画） ----------
+const STATES = [
+  {k:'ok',   name:'轻松',     pct:8,  color:'var(--ok)',   c:'#3fb950', phrase:'状态良好，随时接活'},
+  {k:'warn', name:'累了',     pct:14, color:'var(--warn)', c:'#d29922', phrase:'开始有点沉，注意力下滑'},
+  {k:'hot',  name:'超累',     pct:26, color:'var(--hot)',  c:'#f0883e', phrase:'明显迟钝，容易漏细节'},
+  {k:'crit', name:'要累死了', pct:47, color:'var(--crit)', c:'#f85149', phrase:'接近垮台，该换人了'},
+];
+
+function pixelBot(state, size){
+  // 12x12 像素画：同一只 bot，按状态改 眼睛/姿势/冒烟/天线
+  const P = '#8b949e', B = '#58a6ff', D = '#0d1117';
+  let rows = [
+    '....A.......',
+    '....A.......',
+    '..BBBBBBB...',
+    '.BBBBBBBBB..',
+    '.BBBBBBBBB..',
+    '.BBEEBBBEE..' ,
+    '.BBBBBBBBB..',
+    '.BBBBMBBBB..',
+    'BBBBBBBBBBB.',
+    'BBBBBBBBBBB.',
+    '.BB.....BB..',
+    '..BB...BB...',
+  ];
+  if(state.k==='warn'){ rows[5]='.BBEEBBBEE..'; rows[7]='.BBBBMBBBB..'; }
+  if(state.k==='hot'){  rows[5]='.BBEBBBBEBB.'; rows[7]='.BBBMMMBBB..'; }
+  if(state.k==='crit'){ rows[5]='.BBXBBBBXBB.'; rows[7]='.BBBBBBBBB..'; }
+  const map = {A: state.k==='ok' ? '#58a6ff' : state.c, B:'#7d8590', E:'#e6edf3', M:D, X:state.c, '.':null};
+  let rects = '';
+  for(let y=0;y<rows.length;y++)for(let x=0;x<rows[y].length;x++){
+    const ch = rows[y][x]; if(ch==='.') continue;
+    rects += `<rect x="${x}" y="${y}" width="1" height="1" fill="${map[ch]||'#7d8590'}"/>`;
+  }
+  // 冒烟 / 汗滴 / 倒地
+  let extra = '';
+  if(state.k==='warn') extra = `<rect x="10" y="3" width="1" height="2" fill="#58a6ff" opacity=".8"/>`;
+  if(state.k==='hot')  extra = `<rect x="10" y="2" width="2" height="2" fill="#6e7681" opacity=".7"/><rect x="9" y="0" width="2" height="2" fill="#6e7681" opacity=".45"/>`;
+  if(state.k==='crit') extra = `<rect x="9" y="1" width="3" height="3" fill="#6e7681" opacity=".7"/><rect x="8" y="-2" width="3" height="3" fill="#6e7681" opacity=".4"/>`;
+  const tilt = state.k==='crit' ? ` transform="rotate(12 6 8)"` : '';
+  return `<svg class="bot" width="${size}" height="${size}" viewBox="-1 -3 14 16" shape-rendering="crispEdges" style="image-rendering:pixelated">
+    <g${tilt}>${rects}${extra}</g></svg>`;
+}
+
+const wrapEl = document.getElementById('sprites');
+STATES.forEach(s=>{
+  const d=document.createElement('div'); d.className='card'; d.style.textAlign='center';
+  d.innerHTML = `${pixelBot(s,104)}
+    <div class="st s-${s.k}" style="margin-top:6px">${s.name}</div>
+    <div class="pct" style="text-align:center">${s.pct}%</div>
+    <div class="bar"><i style="width:${s.pct}%;background:${s.color}"></i></div>
+    <div class="note" style="margin:8px 0 0">${s.phrase}</div>`;
+  wrapEl.appendChild(d);
+});
+
+// ---------- 方向 B 仪表盘 ----------
+const gw = document.getElementById('gauges');
+STATES.forEach(s=>{
+  const r=34, circ=2*Math.PI*r, off=circ*(1-s.pct/100);
+  const d=document.createElement('div'); d.className='card'; d.style.textAlign='center';
+  d.innerHTML=`<svg width="92" height="92" viewBox="0 0 92 92">
+      <circle cx="46" cy="46" r="${r}" fill="none" stroke="#21262d" stroke-width="8"/>
+      <circle cx="46" cy="46" r="${r}" fill="none" stroke="${s.c}" stroke-width="8"
+              stroke-dasharray="${circ}" stroke-dashoffset="${off}"
+              transform="rotate(-90 46 46)" stroke-linecap="butt"/>
+      <text x="46" y="52" text-anchor="middle" fill="#e6edf3" font-size="17" font-weight="700">${s.pct}%</text>
+    </svg>
+    <div class="st s-${s.k}">${s.name}</div>
+    <div class="note" style="margin:6px 0 0">窗口 1M · 已用 ${(s.pct*10).toFixed(0)}K</div>`;
+  gw.appendChild(d);
+});
+
+// ---------- 网络图 ----------
+const NODES=[
+  {id:'C', x:200, y:120, r:26, s:'ok',   nm:'Claude-阿罗', task:'重构 auth 中间件', kind:'常驻'},
+  {id:'R', x:330, y:60,  r:19, s:'hot',  nm:'派遣·查资料', task:'调研 EasyTier 打洞', kind:'派遣'},
+  {id:'B', x:330, y:185, r:19, s:'crit', nm:'派遣·改按钮', task:'改前端按钮颜色', kind:'派遣'},
+  {id:'S', x:120, y:35,  r:15, s:'warn', nm:'Codex-小美', task:'写 e2e 测试', kind:'常驻'},
+  {id:'G', x:150, y:215, r:13, s:'warn', nm:'派遣·截图核对', task:'已回收', kind:'已回收'},
+];
+const EDGES=[['C','R'],['C','B'],['B','G'],['S','C']];
+const colorOf=s=>STATES.find(x=>x.k===s).c;
+let svg='';
+EDGES.forEach(([a,b])=>{
+  const A=NODES.find(n=>n.id===a), B2=NODES.find(n=>n.id===b);
+  svg+=`<line x1="${A.x}" y1="${A.y}" x2="${B2.x}" y2="${B2.y}" stroke="#3a4256" stroke-width="1.6"
+        stroke-dasharray="${B2.kind==='已回收'?'4 4':''}"/>`;
+});
+NODES.forEach(n=>{
+  const fill = n.kind==='已回收' ? '#30363d' : colorOf(n.s);
+  svg+=`<circle cx="${n.x}" cy="${n.y}" r="${n.r}" fill="${fill}" opacity="${n.kind==='已回收'?0.45:0.22}"
+              stroke="${fill}" stroke-width="2"/>
+        <text x="${n.x}" y="${n.y+4}" text-anchor="middle" fill="#e6edf3" font-size="10.5" font-weight="600">${n.nm.split('·')[0]}</text>
+        <text x="${n.x}" y="${n.y+n.r+14}" text-anchor="middle" fill="#8b949e" font-size="9.5">${n.nm}</text>`;
+});
+document.getElementById('netA').innerHTML=svg;
+
+// ---------- 泳道看板 ----------
+const LANES=[
+  {t:'接收任务', items:[['Claude-阿罗','ok','8%','重构 auth 中间件']]},
+  {t:'检测到偏题', items:[['守卫判定','warn','out_of_scope · 0.91','"顺便看下这个按钮颜色"']]},
+  {t:'派遣中', items:[['派遣·改按钮','crit','47%','改前端按钮颜色'],['派遣·查资料','hot','26%','调研 EasyTier']]},
+  {t:'已回收', items:[['派遣·截图核对','warn','—','交接文档已归档']]},
+];
+document.getElementById('board').innerHTML = LANES.map(l=>`
+  <div class="card" style="padding:9px">
+    <div class="label" style="margin-bottom:7px">${l.t}</div>
+    ${l.items.map(([n,s,p,t])=>`
+      <div style="border:1px solid var(--line);border-left:3px solid ${colorOf(s)};border-radius:7px;
+                  padding:6px 7px;margin-bottom:6px;background:var(--panel2)">
+        <div style="font-size:11.5px;font-weight:600">${n}</div>
+        <div class="st s-${s}" style="font-size:10.5px">${p}</div>
+        <div class="note" style="margin:2px 0 0;font-size:10.5px">${t}</div>
+      </div>`).join('')}
+  </div>`).join('');
+
+// ---------- 核心对比图 ----------
+(function(){
+  const W=1000,H=300,L=58,R=24,T=18,Bm=34;
+  const px=x=>L+(W-L-R)*x, py=v=>H-Bm-(H-T-Bm)*(v/100);
+  let g='';
+  for(let v=0;v<=100;v+=20){
+    g+=`<line x1="${L}" y1="${py(v)}" x2="${W-R}" y2="${py(v)}" stroke="#21262d" stroke-width="1"/>
+        <text x="${L-9}" y="${py(v)+4}" text-anchor="end" fill="#6e7681" font-size="10">${v}%</text>`;
+  }
+  g+=`<text x="${L}" y="12" fill="#6e7681" font-size="10">上下文占用</text>`;
+  g+=`<text x="${W-R}" y="${H-10}" text-anchor="end" fill="#6e7681" font-size="10">时间 / 轮次 →</text>`;
+
+  // 锯齿：compact
+  const saw=[[0,18],[.06,52],[.12,88],[.13,58],[.14,62],[.2,88],[.21,60],[.22,64],[.28,90],[.29,61],[.3,66],
+             [.36,89],[.37,60],[.39,64],[.45,91],[.46,62],[.48,67],[.55,90],[.56,61],[.6,66],[.68,90],[.7,63],[.78,92],[.8,64],[.9,90],[1,86]];
+  g+=`<polyline fill="none" stroke="#f0883e" stroke-width="2" points="${saw.map(([x,y])=>`${px(x)},${py(y)}`).join(' ')}"/>`;
+  [0.13,0.21,0.29,0.37,0.46,0.56,0.7,0.8].forEach(x=>{
+    g+=`<circle cx="${px(x)}" cy="${py(88)}" r="3.4" fill="#f85149"/>`;
+  });
+
+  // 方波：handoff
+  const step=[[0,10],[.1,14],[.18,20],[.26,26],[.34,31],[.2,32],[.32,36],[.4,42],[.5,49],[.56,55],[.6,58],[.62,0],
+              [.64,6],[.72,12],[.8,18],[.88,23],[1,28]];
+  g+=`<polyline fill="none" stroke="#3fb950" stroke-width="2" points="${step.map(([x,y])=>`${px(x)},${py(y)}`).join(' ')}"/>`;
+  g+=`<line x1="${px(.62)}" y1="${py(58)}" x2="${px(.62)}" y2="${py(0)}" stroke="#3fb950" stroke-width="2" stroke-dasharray="3 3"/>`;
+  g+=`<circle cx="${px(.62)}" cy="${py(58)}" r="4" fill="#58a6ff"/>`;
+  g+=`<text x="${px(.63)}" y="${py(44)}" fill="#58a6ff" font-size="11">handoff：新窗口 + 交接文档（占用归零）</text>`;
+  g+=`<text x="${px(.2)}" y="${py(78)}" fill="#f0883e" font-size="11">auto-compact：同一窗口里反复压缩，越压越糊</text>`;
+  document.getElementById('chart').innerHTML=g;
+})();
+
+// ---------- 时间轴 ----------
+const TL=[
+  ['10:02','@提及','阿罗 在群里 @Claude-阿罗：把 auth 中间件重构掉'],
+  ['10:04','目标抽取','无状态抽取器判断目标已明确，冻结并公示：<b>重构 auth 中间件，不改 API 契约</b>'],
+  ['10:14','越界判定','新消息："顺便帮我看下这个按钮颜色" → 守卫输出 <code>out_of_scope · 置信 0.91</code>（输入只含目标 + 这条消息）'],
+  ['10:14','派遣','新成员 <b>派遣·改按钮</b> 入群（独立上下文、零历史）'],
+  ['10:22','交接','派遣成员产出交接文档：改了什么 / 决策 / 产物路径 / 未决问题'],
+  ['10:23','回收','派遣成员退群（进程结束），主会话上下文未被污染'],
+];
+document.getElementById('timeline').innerHTML = TL.map(([t,ev,txt])=>
+  `<li><code>${t}</code> <span class="ev">${ev}</span>${txt}</li>`).join('');
+
+// ---------- 选择 → 生成回复 ----------
+const groups={sprite:'状态精灵风格',anim:'动效',net:'派发网络',chart:'核心对比图',tl:'事件流'};
+const picks={};
+document.querySelectorAll('.pick').forEach(p=>{
+  const g=p.dataset.group;
+  p.querySelectorAll('.chip').forEach(c=>{
+    c.onclick=()=>{
+      const on = c.getAttribute('aria-pressed')==='true';
+      p.querySelectorAll('.chip').forEach(x=>x.setAttribute('aria-pressed','false'));
+      if(!on){ c.setAttribute('aria-pressed','true'); picks[g]=c.textContent.trim(); }
+      else delete picks[g];
+      render();
+    };
+  });
+});
+function render(){
+  const out=document.getElementById('out');
+  const ks=Object.keys(groups).filter(k=>picks[k]);
+  if(!ks.length){ out.textContent='（还没选）'; return; }
+  out.textContent = 'Stage 3 反馈：\n' + ks.map(k=>`· ${groups[k]} → ${picks[k]}`).join('\n')
+    + '\n\n（其余按你的推荐走）';
+}
+document.getElementById('copyBtn').onclick=()=>{
+  navigator.clipboard.writeText(document.getElementById('out').textContent);
+  document.getElementById('copyBtn').textContent='已复制 ✓';
+  setTimeout(()=>document.getElementById('copyBtn').textContent='复制这段话',1400);
+};
+</script>
+</body>
+</html>

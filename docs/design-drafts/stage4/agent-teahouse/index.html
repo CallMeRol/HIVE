@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<!-- PROTOTYPE（throwaway）· wayfinder ticket #37 · 「茶话间 + agent」三个 UI variant
+     问题：把 buzz 的 agent 成员概念注入 teahouse 茶话间，左侧群聊框架该怎么长？
+     三个 variant（?variant=A|B|C，底部浮动条 / ← → 键切换）：
+       A · 通讯录内混合：agent 与人同列，五档状态点 + 「AI」徽章，顶部 filter chips（全部/人/Agent）
+       B · 独立「Agent 成员」分组：通讯录两段式，agent 有"过程"入口（#33 机库 / #29 过程）
+       C · 悬浮 Agent Dock：通讯录保持纯人，agent 以底部悬浮条承载（常驻 4 槽 + 弹出网络图）
+     已知约束（来自 map #20 的 decisions）：
+       - #36 词表：机库（Hangar）= per-member 过程明细；仪表盘 = 聚合概览；不同轴
+       - #17：五档色 idle 蓝 #58a6ff / <10% 绿 #3fb950 / ≥10% 黄 #d29922 / ≥20% 橙 #f0883e / ≥40% 红 #f85149
+       - #34 迷雾：跨机可见性未决 → 本 prototype 只演示本机视角（Mac = 演示主机）
+       - #29：群内只发正式消息；过程进机库；@agent 需 pending 确认（#30）
+     截图来源：CleanShot 2026-09-22 at 16.58.51@2x.png（teahouse 空状态）
+     这是 throwaway：state 全在内存、数据是假的、启动 = 双击本文件。 -->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PROTOTYPE · 茶话间 + agent 接入（ticket #37）</title>
+<style>
+  :root{
+    /* —— teahouse 原应用的浅色系（自截图取色）—— */
+    --app-bg:#fafafa; --sidebar:#f3f3f3; --sidebar-line:#e5e5e5;
+    --fg:#1f2328; --fg2:#57606a; --fg3:#8c959f;
+    --accent:#2da44e;            /* 茶话间绿（来自 logo） */
+    --accent-soft:#dafbe1;
+    /* —— agent 状态五档（#17 契约，不进 teahouse 色板，单独一档）—— */
+    --st-idle:#58a6ff; --st-easy:#3fb950; --st-busy:#d29922; --st-over:#f0883e; --st-blow:#f85149;
+    --st-offline:#6e7681;
+    /* —— 深色背景（让悬浮窗口有幕布感）—— */
+    --stage:#20212b;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    background:var(--stage); color:var(--fg);
+    font:14px/1.55 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+    display:flex; flex-direction:column;
+  }
+  /* ============ 顶栏 ============ */
+  header.bar{
+    flex:0 0 auto; padding:12px 18px; color:#e6edf3;
+    display:flex; align-items:baseline; gap:12px; flex-wrap:wrap;
+    border-bottom:1px solid #35374a;
+  }
+  header.bar h1{font-size:15px;margin:0;font-weight:700}
+  header.bar .tag{
+    font-size:11px;font-weight:700;letter-spacing:.06em;color:#04101f;
+    background:#58a6ff;border-radius:4px;padding:1px 6px;
+  }
+  header.bar .sub{font-size:12px;color:#9aa4b2;max-width:960px}
+  header.bar .sub b{color:#c9d1d9}
+
+  /* ============ 舞台：窗口截图 + 增量 UI ============ */
+  main{flex:1 1 auto; position:relative; overflow:hidden}
+  .window{
+    position:absolute; inset:24px 28px 72px; margin:auto;
+    max-width:1180px; max-height:760px;
+    background:var(--app-bg); border-radius:12px; overflow:hidden;
+    box-shadow:0 24px 80px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.06);
+    display:grid; grid-template-columns:240px 1fr;
+  }
+  .window img.bg{
+    position:absolute; inset:0; width:100%; height:100%; object-fit:cover;
+    /* 让截图退半步，突出我们新增的 agent UI */
+    opacity:.42; filter:saturate(.6);
+    pointer-events:none; user-select:none;
+  }
+  /* 左侧栏：盖住截图原来的通讯录空态，承载 agent UI */
+  .side{
+    position:relative; z-index:2; background:var(--sidebar);
+    border-right:1px solid var(--sidebar-line);
+    display:flex; flex-direction:column; min-height:0;
+  }
+  .side .search{
+    margin:12px; padding:7px 10px; background:#fff; border:1px solid var(--sidebar-line);
+    border-radius:8px; color:var(--fg3); font-size:13px; display:flex; gap:6px; align-items:center;
+  }
+  .side .list{flex:1 1 auto; overflow-y:auto; padding:2px 8px 12px; min-height:0}
+
+  /* —— 通讯录条目（人 / agent 共用骨架）—— */
+  .peer{
+    display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:9px; cursor:pointer;
+    position:relative;
+  }
+  .peer:hover{background:#e9e9e9}
+  .peer.selected{background:var(--accent-soft)}
+  .avatar{
+    width:34px; height:34px; border-radius:50%; flex:0 0 auto; position:relative;
+    display:flex; align-items:center; justify-content:center;
+    font-weight:700; color:#fff; font-size:14px; background:#888;
+  }
+  /* 五档状态点：右下角小圆（#17 契约位置 = 头像右下角） */
+  .avatar .dot{
+    position:absolute; right:-1px; bottom:-1px; width:11px; height:11px; border-radius:50%;
+    border:2px solid var(--sidebar); background:var(--st-offline);
+  }
+  .avatar .dot.idle{background:var(--st-idle)} .avatar .dot.easy{background:var(--st-easy)}
+  .avatar .dot.busy{background:var(--st-busy)} .avatar .dot.over{background:var(--st-over)}
+  .avatar .dot.blow{background:var(--st-blow)} .avatar .dot.off{background:var(--st-offline)}
+  .meta{min-width:0; flex:1 1 auto}
+  .meta .nm{font-size:13.5px; font-weight:600; color:var(--fg); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .meta .rl{font-size:11.5px; color:var(--fg2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .badge-ai{
+    flex:0 0 auto; font-size:10px; font-weight:800; letter-spacing:.04em;
+    color:#04101f; background:var(--st-idle); border-radius:5px; padding:2px 5px;
+  }
+  .badge-role{
+    flex:0 0 auto; font-size:10px; color:var(--fg2); border:1px solid var(--sidebar-line);
+    background:#fff; border-radius:999px; padding:1px 7px;
+  }
+
+  /* —— 分段标题 —— */
+  .sect{
+    font-size:11px; font-weight:700; color:var(--fg3); letter-spacing:.05em;
+    padding:12px 10px 5px; display:flex; justify-content:space-between; align-items:center;
+  }
+  .sect .count{font-weight:500; color:var(--fg3)}
+
+  /* —— Variant A：顶部 filter chips —— */
+  .chips{display:flex; gap:6px; padding:2px 10px 8px}
+  .chips button{
+    font:inherit; font-size:12px; border:1px solid var(--sidebar-line); background:#fff;
+    color:var(--fg2); border-radius:999px; padding:3px 10px; cursor:pointer;
+  }
+  .chips button[aria-pressed="true"]{background:var(--fg); color:#fff; border-color:var(--fg)}
+
+  /* —— Variant C：底部 Agent Dock —— */
+  .dock{
+    position:absolute; z-index:3; left:50%; bottom:18px; transform:translateX(-50%);
+    display:flex; align-items:center; gap:8px;
+    background:rgba(22,23,32,.92); border:1px solid #3a3d52; border-radius:999px;
+    padding:8px 12px; box-shadow:0 12px 32px rgba(0,0,0,.5); backdrop-filter:blur(8px);
+  }
+  .dock .lbl{font-size:11px; color:#9aa4b2; margin-right:2px; white-space:nowrap}
+  .dock .slot{
+    width:38px; height:38px; border-radius:50%; position:relative; cursor:pointer; flex:0 0 auto;
+    display:flex; align-items:center; justify-content:center; font-weight:700; color:#fff; font-size:13px;
+    border:2px solid transparent;
+  }
+  .dock .slot .dot{position:absolute; right:-1px; bottom:-1px; width:10px; height:10px; border-radius:50%; border:2px solid #161720; background:var(--st-offline)}
+  .dock .slot.idle .dot{background:var(--st-idle)} .dock .slot.easy .dot{background:var(--st-easy)}
+  .dock .slot.busy .dot{background:var(--st-busy)} .dock .slot.over .dot{background:var(--st-over)}
+  .dock .slot.blow .dot{background:var(--st-blow)} .dock .slot.off .dot{background:var(--st-offline)}
+  .dock .slot.pending{border-color:var(--st-busy)}
+  .dock button.open{
+    font:inherit; font-size:12px; font-weight:700; color:#04101f; background:#58a6ff;
+    border:0; border-radius:999px; padding:6px 12px; cursor:pointer; white-space:nowrap;
+  }
+  /* Agent Dock 的弹出迷你网络图（演示「仪表盘入口」） */
+  .dock-pop{
+    position:absolute; z-index:4; left:50%; bottom:76px; transform:translateX(-50%);
+    width:320px; background:#161720; border:1px solid #3a3d52; border-radius:12px;
+    padding:10px 12px; color:#e6edf3; box-shadow:0 16px 40px rgba(0,0,0,.6);
+  }
+  .dock-pop h4{margin:0 0 6px; font-size:12px; color:#9aa4b2; font-weight:600}
+  .dock-pop svg{display:block; width:100%; height:auto}
+  .dock-pop .foot{font-size:11px; color:#9aa4b2; margin-top:6px; display:flex; justify-content:space-between}
+
+  /* —— 右侧空态遮罩：盖住截图原来的「茶话间」欢迎页，避免干扰 —— */
+  .veil{
+    position:relative; z-index:1; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:6px;
+    color:var(--fg3); text-align:center; padding:24px;
+  }
+  .veil .big{font-size:16px; font-weight:700; color:var(--fg2)}
+  .veil .small{font-size:12.5px; max-width:420px}
+
+  /* ============ 底部 variant switcher（UI.md 规格） ============ */
+  .switcher{
+    position:fixed; left:50%; bottom:18px; transform:translateX(-50%); z-index:30;
+    display:flex; align-items:center; gap:10px;
+    background:#0b1220; border:1px solid var(--st-idle); border-radius:999px;
+    padding:7px 12px; box-shadow:0 10px 30px rgba(0,0,0,.55);
+  }
+  .switcher button{background:transparent; color:var(--st-idle); font-size:16px; padding:2px 10px; border-radius:999px; border:0; cursor:pointer}
+  .switcher button:hover{background:#12233d}
+  .switcher #swLabel{font-size:12.5px; font-weight:600; min-width:290px; text-align:center; color:#e6edf3}
+  .switcher .key{font-size:11px; color:#6e7681}
+
+  /* ============ 右侧「state 亮出来」面板 ============ */
+  .state{
+    position:absolute; z-index:5; right:18px; top:18px; width:300px; max-height:calc(100% - 110px);
+    overflow:auto; background:rgba(13,17,23,.94); border:1px solid #30363d; border-radius:12px;
+    color:#c9d1d9; padding:12px 14px; font-size:12px; line-height:1.6; box-shadow:0 12px 32px rgba(0,0,0,.5);
+  }
+  .state h3{margin:0 0 6px; font-size:12px; color:#8b949e; letter-spacing:.05em; text-transform:uppercase}
+  .state pre{margin:6px 0 0; background:#0b0f14; border:1px solid #21262d; border-radius:8px; padding:8px;
+             font:11px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace; white-space:pre-wrap; word-break:break-word}
+  .state .row{display:flex; justify-content:space-between; gap:8px; padding:2px 0}
+  .state .row b{color:#e6edf3; font-weight:600; text-align:right}
+
+  /* 成员行内「过程」小按钮（Variant B） */
+  .peer button.mini{
+    font:inherit; font-size:10.5px; border:1px solid var(--sidebar-line); background:#fff;
+    border-radius:6px; padding:2px 6px; cursor:pointer; color:var(--fg2); flex:0 0 auto;
+  }
+  .peer button.mini:hover{border-color:var(--st-idle); color:var(--st-idle)}
+
+  /* pending 提示点（#30） */
+  .pending-flag{
+    position:absolute; left:-2px; top:6px; width:8px; height:8px; border-radius:50%;
+    background:var(--st-busy); box-shadow:0 0 0 3px rgba(210,153,34,.25);
+  }
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <h1><span class="tag">PROTOTYPE</span>茶话间 + agent 接入 · wayfinder ticket #37</h1>
+  <div class="sub">
+    问题：<b>buzz 式 agent 成员概念怎么进入 teahouse 左侧通讯录？</b>
+    三个 variant（底部条 / <b>← →</b> 键切换）。数据是假的，交互是真的；右上角面板实时显示内存 state。
+    约束：#36 词表（机库=过程明细、仪表盘=聚合概览）、#17 五档色、#34 本机视角。
+  </div>
+</header>
+
+<main>
+  <div class="window" id="window">
+    <img class="bg" src="teahouse-screenshot.png" alt="teahouse 空状态截图">
+
+    <!-- 左栏：agent UI 的承载面（三个 variant 在此分歧） -->
+    <aside class="side" id="side"></aside>
+
+    <!-- 右区：遮住原截图欢迎页，避免干扰判断 -->
+    <section class="veil">
+      <div class="big">群聊区（teahouse 本体，不在本 prototype 范围）</div>
+      <div class="small">本 prototype 只回答「左侧通讯录怎么长」；消息流、@ 交互、pending 收集期的视觉形态归 #30/#29。</div>
+    </section>
+
+    <!-- 右上角：state 面板 -->
+    <div class="state" id="statePanel"></div>
+  </div>
+
+  <!-- Variant C 专属：底部 Agent Dock + 弹出迷你网络图 -->
+  <div id="dockWrap"></div>
+</main>
+
+<nav class="switcher" aria-label="prototype variant switcher">
+  <button id="swPrev" aria-label="previous variant">←</button>
+  <span id="swLabel">A</span>
+  <button id="swNext" aria-label="next variant">→</button>
+  <span class="key">?variant=A|B·C</span>
+</nav>
+
+<script>
+/* =====================================================================
+ * 假数据（内存态，不持久化）——成员、五档、pending、过程指针
+ * ===================================================================== */
+const STATUSES = ['idle','easy','busy','over','blow','off'];
+const STATUS_LABEL = {idle:'空闲', easy:'轻松', busy:'有点忙', over:'过载', blow:'快炸了', off:'离线'};
+const STATUS_COLOR = {idle:'var(--st-idle)', easy:'var(--st-easy)', busy:'var(--st-busy)', over:'var(--st-over)', blow:'var(--st-blow)', off:'var(--st-offline)'};
+
+const HUMANS = [
+  {id:'h-rolex', nm:'rolex',      rl:'主人',            hue:'#8250df'},
+  {id:'h-art',   nm:'美术-阿棠',  rl:'像素美术',        hue:'#cf222e'},
+];
+
+// agents：status 会在演示里手动/自动漂移，展示五档色
+const AGENTS = [
+  {id:'a-code',  nm:'小码',   role:'体素城市·主程',  hue:'#0969da', status:'busy', pct:14, machine:'本机', depth:1, pending:false},
+  {id:'a-audit', nm:'审计官', role:'涌现性 A/B 裁判', hue:'#1a7f37', status:'easy', pct:6,  machine:'本机', depth:2, pending:false},
+  {id:'a-build', nm:'泥瓦匠', role:'斗拱专项',        hue:'#bf8700', status:'over', pct:27, machine:'本机', depth:3, pending:false},
+  {id:'a-win1',  nm:'Win-探针', role:'Windows 冷启动', hue:'#57606a', status:'off', pct:null, machine:'Win-A', depth:1, pending:true},
+];
+
+const state = {
+  variant: new URLSearchParams(location.search).get('variant') || 'A',
+  filter: 'all',          // Variant A 的 chips
+  selected: null,         // 选中的成员 id
+  showMiniMap: false,     // Variant C 的弹出网络图
+  tick: 0,
+};
+
+/* =====================================================================
+ * 渲染：三个 variant 共用 .side 容器，结构分歧在这里
+ * ===================================================================== */
+const side = document.getElementById('side');
+const dockWrap = document.getElementById('dockWrap');
+
+function dot(st){ return `<span class="dot ${st==='off'?'off':st}"></span>`; }
+
+function avatarBg(m){ return `background:${m.hue}`; }
+
+function humanRow(h){
+  return `<div class="peer ${state.selected===h.id?'selected':''}" data-id="${h.id}">
+    <div class="avatar" style="${avatarBg(h)}">${h.nm[0]}${dot('off')}</div>
+    <div class="meta"><div class="nm">${h.nm}</div><div class="rl">${h.rl}</div></div>
+    <span class="badge-role">人</span>
+  </div>`;
+}
+
+function agentRow(a, {withProcessBtn=false, badge=true}={}){
+  const pend = a.pending ? `<span class="pending-flag" title="pending 收集期（#30）"></span>` : '';
+  return `<div class="peer ${state.selected===a.id?'selected':''}" data-id="${a.id}">
+    ${pend}
+    <div class="avatar" style="${avatarBg(a)}">${a.nm[0]}${dot(a.status)}</div>
+    <div class="meta">
+      <div class="nm">${a.nm}</div>
+      <div class="rl">${a.role} · ${STATUS_LABEL[a.status]}${a.pct!=null?` · ${a.pct}%`:''} · ${a.machine} · 深度${a.depth}</div>
+    </div>
+    ${badge?`<span class="badge-ai">AI</span>`:''}
+    ${withProcessBtn?`<button class="mini" data-process="${a.id}">过程</button>`:''}
+  </div>`;
+}
+
+function renderSide(){
+  const v = state.variant;
+  if(v==='A'){
+    // —— Variant A：混合列表 + filter chips ——
+    const chips = [['all','全部'],['human','人'],['agent','Agent']];
+    const list = [
+      ...HUMANS.map(h=>({t:'human', h})),
+      ...AGENTS.map(a=>({t:'agent', a})),
+    ].filter(x => state.filter==='all' || x.t===state.filter);
+    side.innerHTML = `
+      <div class="search">🔍 搜索</div>
+      <div class="chips">${chips.map(([k,l])=>
+        `<button data-chip="${k}" aria-pressed="${state.filter===k}">${l}</button>`).join('')}</div>
+      <div class="sect"><span>通讯录</span><span class="count">${list.length}</span></div>
+      <div class="list">
+        ${list.map(x => x.t==='human' ? humanRow(x.h) : agentRow(x.a, {badge:true})).join('')}
+      </div>`;
+  } else if(v==='B'){
+    // —— Variant B：两段式（人 / Agent 成员）——
+    side.innerHTML = `
+      <div class="search">🔍 搜索</div>
+      <div class="sect"><span>成员（人）</span><span class="count">${HUMANS.length}</span></div>
+      <div class="list" style="padding-bottom:0">
+        ${HUMANS.map(humanRow).join('')}
+      </div>
+      <div class="sect"><span>Agent 成员</span><span class="count">${AGENTS.length}</span></div>
+      <div class="list">
+        ${AGENTS.map(a=>agentRow(a,{withProcessBtn:true})).join('')}
+      </div>`;
+  } else {
+    // —— Variant C：通讯录保持纯人，agent 全部去底部 Dock ——
+    side.innerHTML = `
+      <div class="search">🔍 搜索</div>
+      <div class="sect"><span>通讯录</span><span class="count">${HUMANS.length}</span></div>
+      <div class="list">
+        ${HUMANS.map(humanRow).join('')}
+        <div class="sect"><span>Agent 在底部 Dock →</span></div>
+      </div>`;
+  }
+}
+
+function renderDock(){
+  if(state.variant!=='C'){ dockWrap.innerHTML=''; return; }
+  const slots = AGENTS.map(a=>`
+    <div class="slot ${a.status} ${a.pending?'pending':''}" style="background:${a.hue}" data-id="${a.id}" title="${a.nm} · ${STATUS_LABEL[a.status]}">
+      ${a.nm[0]}<span class="dot"></span>
+    </div>`).join('');
+  dockWrap.innerHTML = `
+    <div class="dock" id="dock">
+      <span class="lbl">Agent · ${AGENTS.filter(a=>a.status!=='off').length} 在线</span>
+      ${slots}
+      <button class="open" id="openMiniMap">${state.showMiniMap?'收起网络图':'派遣网络图'}</button>
+    </div>
+    ${state.showMiniMap ? miniMapHtml() : ''}`;
+}
+
+function miniMapHtml(){
+  // 迷你派遣网络图（演示「仪表盘入口」长什么样；完整版归 #17）
+  const nodes = AGENTS.map((a,i)=>{
+    const x = 40 + (i%2)*120, y = 30 + Math.floor(i/2)*46;
+    return `<g class="node" data-id="${a.id}" style="cursor:pointer">
+      <rect x="${x-14}" y="${y-14}" width="28" height="28" rx="6" fill="${a.hue}" opacity="${a.status==='off'?0.35:1}"/>
+      <circle cx="${x+11}" cy="${y+11}" r="4" fill="${STATUS_COLOR[a.status]}"/>
+      <text x="${x}" y="${y+4}" text-anchor="middle" font-size="11" fill="#fff" font-weight="700">${a.nm[0]}</text>
+      <text x="${x}" y="${y+28}" text-anchor="middle" font-size="9" fill="#8b949e">${a.nm}</text>
+    </g>`;
+  }).join('');
+  const edges = AGENTS.slice(1).map((a,i)=>{
+    const x1 = 40 + (0)*120, y1 = 30 + 0*46;
+    const x2 = 40 + ((i+1)%2)*120, y2 = 30 + Math.floor((i+1)/2)*46;
+    return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#3a4256" stroke-width="1.4" stroke-dasharray="${a.status==='off'?'3 3':'none'}"/>`;
+  }).join('');
+  return `<div class="dock-pop">
+    <h4>派遣网络图（迷你 · 完整规格 #17）</h4>
+    <svg viewBox="0 0 240 140">${edges}${nodes}</svg>
+    <div class="foot"><span>本机视角（#34）</span><span>峰值 31（#31）</span></div>
+  </div>`;
+}
+
+function renderStatePanel(){
+  const v = state.variant;
+  const lines = [
+    ['variant', v],
+    ['filter', state.filter],
+    ['selected', state.selected ?? '—'],
+    ['showMiniMap', state.showMiniMap],
+    ['tick', state.tick],
+  ];
+  const members = [...HUMANS.map(h=>({...h, kind:'人', status:'off'})),
+                   ...AGENTS.map(a=>({...a, kind:'agent'}))];
+  document.getElementById('statePanel').innerHTML = `
+    <h3>state（内存 · 每次操作后重渲）</h3>
+    ${lines.map(([k,v])=>`<div class="row"><span>${k}</span><b>${v}</b></div>`).join('')}
+    <pre>${JSON.stringify(members, null, 2)}</pre>`;
+}
+
+function renderAll(){
+  renderSide();
+  renderDock();
+  renderStatePanel();
+  document.getElementById('swLabel').textContent =
+    `${state.variant} · ${{A:'通讯录内混合（chips 过滤）',B:'两段式（Agent 成员分组）',C:'悬浮 Agent Dock + 迷你网络图'}}[${state.variant}]`;
+}
+
+/* =====================================================================
+ * 交互（全部事件委托，内存态）
+ * ===================================================================== */
+document.addEventListener('click', (e)=>{
+  const chip = e.target.closest('[data-chip]');
+  if(chip){ state.filter = chip.dataset.chip; renderAll(); return; }
+
+  const proc = e.target.closest('[data-process]');
+  if(proc){
+    // 「过程」= 打开机库（#33 定案：应用内新窗口 / 形态 C 卡片网格）
+    state.selected = proc.dataset.process;
+    const a = AGENTS.find(x=>x.id===state.selected);
+    alert(`打开机库（Hangar）→ 定位到「${a.nm}」\n（#33 定案：应用内新窗口 · 形态 C 卡片网格 · 过程流）`);
+    renderAll(); return;
+  }
+
+  const peer = e.target.closest('.peer, .slot, .dock-pop .node');
+  if(peer && peer.dataset.id){
+    state.selected = peer.dataset.id;
+    renderAll(); return;
+  }
+
+  if(e.target.closest('#openMiniMap')){
+    state.showMiniMap = !state.showMiniMap;
+    renderAll(); return;
+  }
+});
+
+/* =====================================================================
+ * Variant switcher（UI.md 规格：URL ?variant= 可分享 + ← → 键环绕）
+ * ===================================================================== */
+const ORDER = ['A','B','C'];
+function setVariant(v){
+  state.variant = ORDER.includes(v) ? v : 'A';
+  const url = new URL(location);
+  url.searchParams.set('variant', state.variant);
+  history.replaceState(null,'',url);
+  renderAll();
+}
+document.getElementById('swPrev').onclick = ()=> setVariant(ORDER[(ORDER.indexOf(state.variant)+ORDER.length-1)%ORDER.length]);
+document.getElementById('swNext').onclick = ()=> setVariant(ORDER[(ORDER.indexOf(state.variant)+1)%ORDER.length]);
+document.addEventListener('keydown', (e)=>{
+  if(/^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName) || document.activeElement?.isContentEditable) return;
+  if(e.key==='ArrowLeft') document.getElementById('swPrev').click();
+  if(e.key==='ArrowRight') document.getElementById('swNext').click();
+});
+
+/* 演示模式：每 4s 随机让一个 agent 漂移一档（把五档色都点亮） */
+setInterval(()=>{
+  state.tick++;
+  const live = AGENTS.filter(a=>a.status!=='off');
+  if(live.length){
+    const a = live[Math.floor(Math.random()*live.length)];
+    const i = STATUSES.indexOf(a.status);
+    a.status = STATUSES[Math.min(STATUSES.length-2, Math.max(0, i + (Math.random()<.5?-1:1)))];
+    a.pct = {idle:0, easy:6, busy:14, over:27, blow:43}[a.status] ?? 0;
+  }
+  renderAll();
+}, 4000);
+
+renderAll();
+</script>
+</body>
+</html>

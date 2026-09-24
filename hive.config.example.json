@@ -1,0 +1,25 @@
+{
+  "$comment": [
+    "Hive 本机运维配置（#48）。cp 成 hive.config.json 后按需改；该文件是现场唯一需要手写的配置。",
+    "dataRoot 缺省 = ~/Library/Application Support/Hive；每个节点在此下拿一个独立子目录作为 PANTRY_USER_DATA。",
+    "PANTRY_USER_DATA 必须每节点独立：单例锁按 userData 隔离，只改端口救不了（docs/local-api.md）。",
+    "app 缺省走 dev 构建产物（vendor/teahouse/out/）；填 .app 路径则用打包产物。",
+    "api: 0 = 由系统分配临时端口，实际端口以 up 期间打印的 health 为准。"
+  ],
+  "app": null,
+  "nodes": [
+    {
+      "id": "gui",
+      "gui": true,
+      "nick": "Hive 主控"
+    },
+    {
+      "id": "member-a",
+      "nick": "成员 A"
+    },
+    {
+      "id": "member-b",
+      "nick": "成员 B"
+    }
+  ]
+}

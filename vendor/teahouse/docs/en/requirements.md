@@ -1,0 +1,274 @@
+# Teahouse requirements
+
+> [简体中文](../requirements.md) · **English**
+
+| Field | Value |
+|---|---|
+| Status | v0.60.1 contact profile synchronization fixed (#316); physical remote-view platform acceptance remains pending |
+| Updated | 2026-09-18 |
+| Authority | The [Chinese requirements document](../requirements.md) is the canonical feature and decision record. This document translates the current effective requirements. |
+
+## 1. Product goals
+
+Teahouse is a serverless, IP-based LAN messenger and file-transfer application.
+
+1. **No server and minimal setup** — Install, start, and discover equal peers automatically.
+2. **LAN-only operation** — Runtime data remains on the local network; there is no telemetry or Internet dependency.
+3. **Office-grade reliability** — Messages must not disappear silently and file transfer should use available LAN throughput.
+4. **Legacy-friendly desktop coverage** — Support Windows 7 SP1, Debian 10 / UOS 20, current Linux distributions, and macOS.
+
+The primary deployment is an office network with tens to hundreds of users, multiple subnets or VLANs, and a practical need for routed-subnet discovery. The design budget is at most 1,000 online peers on one network (decision #15).
+
+## 2. Users and environments
+
+- General office workers who expect a familiar, zero-training interface.
+- IT administrators who distribute packages, configure firewalls, and define scan ranges.
+- Windows 7 virtual machines, including x64 and 32-bit systems; UOS and Debian desktops; and Apple Silicon Macs.
+- Small single-subnet teams and personal multi-device transfer are naturally supported secondary uses.
+
+Each device is an independent identity. Teahouse has no account system that merges one person's devices.
+
+## 3. Out of scope
+
+- Internet messaging, cloud synchronization, cloud storage, or any central server.
+- Mobile clients.
+- Rich-text formatting and video calls. Voice intercom and remote keyboard/mouse control remain future evaluations. Read-only desktop viewing is implemented under #310 (§6.5).
+- Read receipts. Message status ends at delivered (decision #1).
+- Transport encryption. The security model trusts the LAN boundary (decision #5).
+- A server-backed account or organization directory.
+- Wire compatibility in the primary UTF-8 JSON protocol. Any Neiwangtong/IP Messenger interoperability is isolated in a separately enabled compatibility mode.
+
+## 4. Terms
+
+| Term | Meaning |
+|---|---|
+| Peer | One running Teahouse client instance |
+| Node ID | Persistent local identity created on first launch; independent of IP address and nickname |
+| Conversation | Chat context with a peer or discussion group |
+| Discussion group | Fixed-member peer-to-peer group; the sender delivers to members individually |
+| Organization path | User-declared company, department, and team fields used to group contacts |
+| Offline retry | Persistent sender-side queue that retries in order after a peer returns online |
+| File cabinet | A user-selected local folder exposed with default and per-peer permissions |
+
+## 5. Feature priorities
+
+P0 is required for a usable product, P1 is expected for a complete release, and P2 is an enhancement.
+
+| Area | Capability | Priority | Delivered/planned |
+|---|---|---|---|
+| Discovery | Same-subnet discovery, heartbeat, online list | P0 | v0.1 |
+| Discovery | Manual IP, CIDR probing, peer-list gossip | P0 | v0.1–v0.3 |
+| Discovery | Low-rate scan-range sharing and global refresh | P0 | v0.17–v0.18 |
+| Contacts | Persistent peers, search, notes, three-level organization | P0/P1 | v0.1–v0.3 |
+| Messaging | Private text, delivery state, retry, offline queue | P0 | v0.1 |
+| Messaging | Images, emoji, stickers, paste, drag and drop | P0/P1 | v0.2+ |
+| Messaging | Discussion groups, roles, mentions, forwarding, recall | P0/P1 | v0.3+ |
+| Messaging | Search, history, export, migration import | P0/P1 | v0.2+ |
+| Capture | Region capture, annotation, and shortcut | P0 | v0.3 |
+| Files | Files, folders, queue, resume, records | P0/P1 | v0.2+ |
+| File cabinet | Permissioned browse, download, upload, and first-class tab | P1 | v0.47–v0.51 |
+| Desktop | Tray, notifications, startup, shortcuts | P0/P1 | v0.1+ |
+| Updates | Peer-to-peer update discovery and package transfer | P1 | v0.27+, incomplete end-to-end |
+| Settings | Profile, avatar, ports, destinations, theme, shortcuts | P0/P1 | v0.1+ |
+| Application language | Simplified Chinese / English, immediate switching | P1 | v0.57.0 |
+| Screen assistance | One-to-one, per-session consent, Auto/manual 3/5/10 fps | v0.58.0 (#310) | Implemented; physical permission/performance acceptance pending |
+| Documentation language | Simplified Chinese and English | Maintained | v0.51.1 |
+| Compatibility | Neiwangtong compatibility mode | Paused | Unscheduled (#199) |
+| Local API | Optional local automation/AI interface | P2 | Future research |
+
+The v0.51.1 localization applies to repository and release documentation. Application UI localization is delivered separately in v0.57.0 (#307).
+
+## 6. Functional requirements
+
+### 6.1 Discovery and presence
+
+- **Same subnet:** broadcast entry on startup, respond after a randomized delay, update the online list, broadcast exit on graceful shutdown, and use heartbeat timeout after abnormal termination.
+- **Routed subnets:** support manually entered peer IPs, rate-limited CIDR probes, and peer-list gossip. One reachable bridge peer can introduce nodes from another subnet.
+- **Scan-range sharing (#114):** share user-added CIDRs at a low rate. Receiving a range records it without an immediate full scan. Background scans wait 30–90 minutes, scan a range no more than once every 12 hours, and sample about 10% of clients when more than 50 peers are online. Removing a learned range adds a local ignore entry.
+- **Global refresh (#115/#197):** the navigation-rail refresh action asks for confirmation, deduplicates hosts from every saved valid range, probes with the normal manual rate limit, displays progress, and prevents concurrent scans.
+- **Stable identity:** generate and persist a Node ID on first launch. Conversations and history follow Node ID across nickname or IP changes.
+- **Contact projection:** retain peers after they go offline, gray offline rows, show green/gray status dots, sort online entries first, and refresh profile data after entry, profile-version mismatch, or explicit update.
+- **Organization:** users self-declare company, department, and team. Contacts aggregate into a collapsible three-level tree; empty levels are skipped.
+- **Secondary liveness check:** probe a peer when opening its conversation; message delivery still depends on ACK.
+- **Local notes:** a private note can override the displayed nickname and participate in contact, conversation, and search matching.
+- **Avatars (#243–#249):** support animal emoji, nickname initial, and custom image modes. Custom static JPG/PNG/WebP/BMP images are locally cropped to a bounded 192×192 WebP. The profile announces a SHA-256 hash and peers fetch/cache it on demand through the LAN. Numeric avatars remain the fallback for old clients and missing content.
+
+### 6.2 Messaging
+
+- **Private text:** UTF-8 text and emoji use globally unique message IDs. Short messages prefer UDP+ACK, fall back to one TCP control-frame attempt after UDP retries, and send oversized payloads directly over TCP.
+- **State:** outgoing messages show sending, delivered, failed, or waiting for the peer. No read receipt is produced.
+- **Offline queue:** keep messages for seven days, preserve order, cap each target at 200 queued items, and deduplicate by message ID on receipt.
+- **Images:** accept pasted, dragged, or selected images; render a thumbnail and open a validated original. Oversized or invalid inline images become ordinary files.
+- **Conversation image navigation (#303):** the image window shows Previous/Next buttons on the two sides of the canvas. Browse the full local history of the opened private/group conversation in message sequence order, including screenshots and table images. Disable the corresponding button at either end without wrapping. Skip recalled, incomplete incoming, missing or invalid images; exclude stickers and ordinary files, and show each group image message once. History-search images use the same scope. Switching keeps the window bounds and resets image transforms and OCR display; existing arrow-key panning remains. Disable navigation during requests and show retryable failures.
+- **Selection alignment and gesture cursor (#305):** restore the existing expanded detection bounds instead of the raw shrunken contour, then fit the native text selection box to its OCR line bounds, measuring only when the result layout changes. A gesture started on text keeps the text cursor over line gaps and image blank areas; release it on pointer up/cancel, blur, hiding or image change. Blank-area gestures still pan. Preserve native copying, one node per line and existing OCR resource limits.
+- **In-image OCR selection (#304):** all platforms start recognition only after clicking Recognize Text. Cached results restore selectable text directly over the image without inference. Use native partial/cross-line selection, Ctrl/Cmd+C, Copy Selection and Copy All; remove the separate text-result panel. Blank image areas still pan and text follows zoom/rotation. One local single-threaded Worker runs at most one image; changing images or closing cancels active work. Keep the existing models and 2200px input/960px detection limits. Each recognized line uses one DOM node with no per-character hit-test loop or polling. Special fonts/spacing/skew can affect character alignment; recognition may briefly occupy one CPU core, without a hardware-independent timing/CPU guarantee.
+- **Table paste (#190/#270):** paste table text into the draft and show a small “send as image” choice. Enter sends plain text. Image conversion is explicit. Peers advertising `tbl1` may also receive bounded TSV metadata for a local image/text view toggle.
+- **Discussion groups:** support up to 200 members. Owners appoint administrators; all members may invite contacts; owners and administrators can rename and remove members according to the role matrix. The owner transfers deterministically when leaving. Optional management passwords grant selected legacy management operations. Group metadata changes produce idempotent system messages. Group owners, administrators, or password-holding members can set or clear a group description (≤ 200 characters) and a group announcement (≤ 1024 characters) from the member panel; empty text is omitted from display. Changes broadcast via `group.info`; old packets that omit either field preserve the local known value or default to empty on first receipt. Migration backups preserve both fields.
+- **Group media:** send one offer per online member. Offline members do not enter a file queue. Images up to 10 MiB use the image path; larger images become manual file transfers.
+- **History and search:** store locally in SQLite, support infinite pagination and per-conversation scroll restoration, provide global search across contacts/groups/messages/files, and provide filters within one conversation.
+- **Export and migration:** export readable HTML/TXT and a `.pantry-bak` migration archive. Import maps the previous local identity to the current Node ID and merges by message ID.
+- **Recall:** allow the sender to recall eligible text, group text, game, image, and unfinished file messages within five minutes. Completed files remain on disk. Group-file recall is available only while every recipient transfer is unfinished.
+- **Emoji and stickers:** render a local Twemoji subset on legacy platforms while preserving UTF-8 characters on the wire and clipboard. Stickers can be collected from chat images or imported through the native multi-image picker, retain the existing static/GIF size controls, and can be sent in private or group conversations. Group stickers follow group-image delivery and reach only currently online members.
+- **Forwarding and mentions:** forward supported content through a global modal and support mentions in groups. **Quoted replies** (decision #288, v0.53): tapping a message in a group conversation attaches its source message ID (`replyTo`) to the next send; the codec rejects empty strings and objects with `senderName`/`text`. Receivers look up the source ID in the local group conversation, populate `ReplyMeta` with sender name and first-line text summary, and render a quoted-context bar above the bubble; clicking jumps to the source message's conversation. If the target is absent locally, receipt succeeds and the renderer shows an unavailable-target hint.
+- **Nudge:** private chats can send a reliable, rate-limited window nudge. It is never queued for a later offline delivery.
+- **PK games:** rock-paper-scissors and dice use delayed reveal semantics defined by the current protocol and UI documents.
+
+### 6.3 Files and file cabinet
+
+- Send one file, multiple files, or a complete directory through a pull-based TCP stream.
+- Sanitize names, constrain paths, avoid overwrites, write `.part` files, resume by offset, and verify SHA-256 before completion.
+- Limit concurrent streams and queued work; show progress, pause/wait states, cancellation, failure, resume, and transfer records.
+- Ordinary chat files expire after 24 hours. Both sides display an explicit expired terminal state and disable new retrieval.
+- Private-chat “direct send” may auto-accept into the configured contact directory when both peers support it. “Save as” remains an explicit destination choice.
+- File cabinet sharing defaults to off. The owner selects an approved root outside dangerous system/home/application-data roots and assigns `off`, read, or read/write as a default plus per-peer exceptions.
+- The cabinet browser paginates and snapshots directory listings, enforces rate and size limits, rechecks `realpath` containment, and presents permission-specific download/upload actions.
+- Uploads land under a sanitized uploader-specific directory inside the shared root and generate an idempotent local system message.
+- The main window exposes File Cabinet as its third tab with a peer list, My Cabinet management, list/grid browsing, selection, keyboard navigation, and transfer progress.
+
+### 6.4 Capture, desktop, and settings
+
+- Region capture supports multi-display work areas, annotation tools, and copy/send. On Wayland it enables the PipeWire portal and attempts real source capture instead of rejecting the session up front. Empty sources, empty images, and capture errors restore the main window and produce visible in-app feedback; hidden shortcut invocations use a system notification when available. Every failure offers system capture plus chat-box `Ctrl+V` as a fallback. Before capture, hiding the main window waits for the hide signal and compositor settling, then verifies that the window is no longer visible.
+- Tray state, unread attention, native notifications, startup, close behavior, and global shortcuts work across the platform matrix.
+- Notifications suppress message bodies in logs and honor user settings, conversation mute, current visibility/focus, and mention rules.
+- Settings cover identity, organization, avatar, directories, receive behavior, notifications, startup, theme, font size, send key, shortcuts, ports, backup/import, and About.
+- Port editing requires an explicit risk confirmation before an individual field unlocks.
+- Peer-to-peer update discovery compares version, platform, and architecture. Package transfer requires explicit user action, exact package naming, a short-lived source-bound grant, SHA-256 integrity, a size limit, and local package-version validation. Applying and restarting remain incomplete on all target paths.
+
+<a id="remote-view"></a>
+
+### 6.5 Remote desktop viewing (#310, v0.58.0)
+
+Source: [Issue #13](https://github.com/skyjt/teahouse/issues/13). The user approved an initial assistance scope: watch a colleague's operations, error messages, and spreadsheets, then guide them through existing chat. Use **low-frame-rate JPEG over the existing TCP listener, in plaintext**, without additional listening ports, servers, WebRTC transport, or native modules. Version **0.58.0** adds the private-chat entry, independent windows, frame transport and runtime role capabilities.
+
+| Requirement | Scope |
+|---|---|
+| F-VIEW-1 | An online private-chat peer confirms the explanation and target before sending a viewing request. The sharer explicitly consents and selects one screen on every session. Receipt alone never starts capture. Requests can be canceled, rejected, or expire; they never enter the offline queue. |
+| F-VIEW-2 | Consent binds one session, viewer, and selected screen. Show both identities and a persistent sharer-side stop action. End invalidates permission; another session needs fresh consent, with no permanent trust or auto-accept. |
+| F-VIEW-3 | One-to-one, one-way, single-screen images only. Auto starts at 10 fps and adapts among 10/5/3 fps (#310), preserving text readability with moderate compression. Reduce achieved fps under load without queuing. The viewer can fit, display received pixels at 100%, and pan locally. Input never controls the remote machine; changing screens requires a new session. |
+| F-VIEW-4 | Stop, close, lock, suspend, quit, capture loss, or disconnection ends the session and releases capture. Network failure uses bounded deadlines. Unlock/recovery never reconnects automatically; clear the image on end. |
+| F-VIEW-5 | One pending or active session per node, regardless of role. Return an explicit busy result. Keep bounded current-frame state; never accumulate historical frames. Chat selection does not change the session, and chat/file transfer remain usable. |
+| F-VIEW-6 | Frames and grants stay in memory, outside messages, transfer records, SQLite, thumbnails, exports, and backups. #312 stores only local lifecycle metadata as system cards; normal chat exports/backups include these records. Log only IDs, dimensions, sizes, timings, and reason enums. Never log pixels, screen titles, or tokens. Plaintext retains the existing LAN trust model and provides no protection against LAN interception or identity spoofing. |
+| F-VIEW-7 | Advertise receiving and sharing separately. Hide the entry for legacy peers; explain unavailable roles/offline state on capable peers. Validate sustained capture on each target platform. Preserve #289's ARM64 Wayland capture guard; receiving is a separate validation candidate. |
+| F-VIEW-8 | Exclude remote input, audio/camera, recording/saving, clipboard sync, remote file drops, multiple viewers, unattended access, reconnect, public-network traversal, and interoperability with other remote-control products. Do not scaffold these features. |
+| F-VIEW-9 (#312) | One persistent private-chat card per legitimate request on each endpoint, updated in place for requests, refusals, cancellations, timeouts and completion. Keep request/start/end timestamps and monotonic connected duration; unknown interruption times remain blank. No duplicate cards, unread increments, forwarding or recall. |
+
+The approved implementation uses an independent window, Auto by default, and manual Economy/Standard/Smooth targets. Shared defaults are a 1600-pixel long edge and JPEG quality 0.60, with the same oversized-frame fallback for every mode. Actual office-text readability and platform performance need target-machine validation. See [UI behavior](ui-design.md#remote-view).
+
+Lock-triggered termination is a release requirement. Electron 22's lock events do not cover Linux; require a readable DDE/UKUI lock state and a live monitor before advertising either role. Lower quality does not resolve the native ARM64 Wayland crash. Wire fields and limits live in [protocol §8.3](protocol.md#remote-view); capture, trial settings, platform gates, and acceptance live in [technical design §3.1](tech-design.md#remote-view).
+
+#### 6.5.1 Frame-rate modes (#310)
+
+The user approved development after the mode proposal: **Auto is the default**, with 10 fps as its initial and maximum target. Changes apply within the current session; every new session resets to Auto.
+
+| Mode | Target | Use |
+|---|---|---|
+| Auto (default) | Start at 10; adapt among 10 / 5 / 3 fps | Reduce based on actual sampling/encoding/network/decoding cycle time, recover after sustained stability |
+| Economy | 3 fps | Older computers, VMs, or heavy concurrent office work |
+| Standard | 5 fps | Errors, settings, and spreadsheets with moderate motion/resource use |
+| Smooth | 10 fps | Follow pointer movement, menus, and scrolling more easily |
+
+All modes share image quality and oversized-frame fallback, changing only request pacing. Manual targets may exceed achieved throughput under load. Auto uses measured full-cycle processing headroom, without CPU-model guesses. Only the viewer changes mode; minimizing temporarily requests 3 fps, restoring resumes the selected mode. No persistent setting or expanded remote permission is added. The canonical Chinese section is requirements §6.11.1.
+
+## 7. Non-functional requirements
+
+| Area | Requirement |
+|---|---|
+| Scale | Up to 1,000 online peers and 200 members per discussion group |
+| Compatibility | Electron 22.3.27, Node 16.17 main/preload, Chrome 108 renderer |
+| Security | Context isolation, sandbox, disabled Node integration, strict CSP, blocked navigation/new windows |
+| Network | LAN-only runtime, global no-proxy switch, no telemetry or remote assets |
+| Validation | Exact inbound allowlists, bounded frames, rate limits, resource budgets, unknown-type ignore |
+| Privacy | Never log message bodies or file content; log metadata only |
+| Reliability | Persistent offline queue, deduplication, retry, `.part` resume, integrity verification |
+| Performance | Stream large files, bound images/thumbnails/caches, debounce search, throttle UI progress |
+| Accessibility | Keyboard operation, focus restoration, reduced-motion behavior, meaningful accessible labels |
+| Packaging | Windows x64/ia32, Linux x64/arm64, macOS arm64; exact artifact/version consistency |
+| Documentation | Bidirectional language links and synchronized Chinese/English current specifications |
+
+## 8. Decision record
+
+The complete append-only ledger is maintained in [requirements.md §9](../requirements.md#9-决议记录). English current specifications cite the decisions that remain materially important. The localization increment adds:
+
+| Decision | Context | Outcome                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+|---|---|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| #285 | Publish maintainable English README, user/developer guides, and current design documentation | Keep established Chinese paths canonical; add English counterparts and bidirectional navigation; validate document coverage and links in CI; use bilingual GitHub Release headings; ship as v0.51.1. Application UI language remains unchanged.                                                                                                                                                                                                                                |
+| #286 | Kylin and UOS/Huawei systems can ignore capture clicks or retain the main window in screenshots (#29 / #31) | Enable Electron 22's PipeWire capturer on Wayland but still probe `desktopCapturer`; wait for the hide signal and compositor settling, verify invisibility, and surface every empty-source/image/error outcome in-app or through a system notification with a system-capture + `Ctrl+V` fallback. Ship as v0.51.2 without protocol, database, dependency, or network changes.                                                                                                  |
+| #287 | Issue #30: stickers require a chat-image workaround, multi-row grids overlap, and saved stickers cannot be sent to groups | Add native multi-image import with a separate window-scoped one-time path grant, reuse the existing WebP/GIF collection pipeline, size implicit grid rows to their square items with vertical overflow, and route group stickers through the existing online-member `purpose:"sticker"` media path. Ship as v0.52.0 without protocol, database, dependency, or port changes.                                                                                                   |
+| #288 | Implement group-text quoted replies | Add optional `replyTo` source-message-ID to the `group-text` payload. The codec accepts only bounded non-empty strings and rejects empty strings and objects with `senderName`/`text`. Senders carry only the ID; receivers look up the source in the local group conversation, populate `ReplyMeta`, and store the raw ID in `messages.reply_to`. Missing targets are handled gracefully by the renderer. Advance protocol to v0.51, SQLite advances to v15. Ship as v0.53.0. |
+| #289 | Issue #34: Kylin ARM64 Wayland exits when capture enumerates screens | Electron 22 can crash natively before JavaScript can recover. At the shared capture entry, skip `desktopCapturer` only on ARM64 Wayland and reuse the visible system-capture + `Ctrl+V` fallback. Keep x64 Wayland, ARM64 X11, other platforms, protocol v0.51, SQLite v15, dependencies, and network behavior unchanged. Ship as v0.53.1.                                                                                                                                     |
+| #290 | Group description and group announce | Group owners, administrators, or password-holding members may set or clear a group description (≤ 200 characters) and a group announcement (≤ 1024 characters) from the group panel. Empty text is omitted from display. Changes broadcast via `group.info` and produce idempotent system hints. Omitted legacy fields preserve local values; migration backups preserve both fields; inbound changes enforce one-operation permission isolation. SQLite migration v16 adds both columns. Protocol remains v0.51; SQLite advances to v16. Ship as v0.54.0. |
+| #291 | Harden PR #39 after review | Keep the new `group.info` fields optional for legacy peers and preserve locally known values when omitted. Accept one description or announcement change at a time only from an owner, administrator, or member with the correct management password; reject text smuggled alongside invite, rename, or another text change. Reuse one renderer dialog and the existing password-aware update path, and preserve both fields in backups. Protocol v0.51, SQLite v16, dependencies, and ports remain unchanged. Ship as v0.54.1. |
+| #292 | Restore group snapshot catch-up | Local IPC and adjacent revisions remain single-operation. A cumulative snapshot needs a revision gap covering its changed text fields and recognized structural operation; text authorization and the existing structural permission matrix must both pass. High revisions never bypass authorization or allow unknown structural combinations. Protocol v0.51 and SQLite v16 remain unchanged. Ship as v0.54.2. |
+| #293 | Main-window Escape | An unmodified, non-repeating Escape hides the main window after local overlays and selection have handled it. Composition and consumed events take precedence. Only the main renderer can invoke the hide IPC; minimize when the tray is unavailable. Close preferences and configurable global shortcuts remain intact. Ship as v0.54.3. |
+| #294 | OPT-23: conversation menu placement | Clamp the measured menu inside the CSS viewport with an 8px margin and reposition while open on resize. Preserve pin/mute/remove actions, confirmation, ten-second undo, Escape priority, and existing page zoom. Protocol, storage, dependencies, and platform compatibility branches stay unchanged. Ship as v0.54.4. |
+| #295 | OPT-24: global-search lifecycle | Clear debounce timers and invalidate stale requests on query change/unmount. Only the current request updates results, error, and loading state. Preserve 200ms debounce, query categories/order/limits, navigation, and IME behavior; use existing loading/error placeholders and retry on new input. Ship as v0.54.5. |
+| #296 | OPT-25: quote/transfer reads | Quotes use the existing conversation-scoped ID index with reactive append/trim/reload/recall updates. Coalesce same-ID in-flight historical-message and transfer reads; release after success, missing result, or failure and allow retry. Realtime transfer state takes precedence over an earlier read. No additional permanent history cache or protocol/database/state-machine/platform changes. Ship as v0.54.6. |
+| #297 | OPT-26: global FTS query | One MATCH preserves text/PK counts and ordering while obtaining the newest seq across all matching kinds. Read summaries through the existing index; non-unique seq values use the original MATCH lookup. Keep tokenizer, LIKE escaping, sorting/limits, old databases, schema, and dependencies intact. Ship as v0.54.7. |
+| #298 | OPT-27: inactive caches | Keep at most 10 inactive conversation snapshots totaling 3000 messages, evicting oldest whole snapshots and their indexes. Protect the active conversation and pending removal undo window; reload latest/history from main and reject stale page results. Retain active transfers and component-referenced states, cap unused terminal states at 200, and release terminal speed samples. Preserve realtime precedence, unread state, forwarding/retry, persistent data, and platform paths. Ship as v0.54.8. |
+| #299 | OPT-28: thumbnail concurrency | Bound the near-viewport thumbnail pipeline to 4 hardware-rendered or 2 software/unknown-profile jobs. Same-ID images share work; leaving the near viewport, rebinding, or unmounting releases a demand, and unstarted jobs with no remaining demand are discarded. Running jobs complete and release their slots. Reuse the existing 512-entry LRU for completed URLs, preserving cache parameters, animation/small-image/original fallbacks, the 480px margin, viewer/OCR/pixel guards, and existing protocol/IPC/database/dependencies. Ship as v0.54.9. |
+| #300 | CI packaging performance | Linux installs dependencies without automatic lifecycle hooks, explicitly restores required non-native setup, and source-builds better-sqlite3 once on Debian 10. Each platform builds the application once and reuses it for smoke and packaging. Cache downloads per platform/job and disable artifact recompression. Keep all validation, triggers, five platforms, 15 assets, and compatibility baselines. Ship as v0.54.10. |
+| #301 | OPT-29: readable list metadata | Apply the existing secondary-text token locally to conversation times/previews/counts, contact IPs/counts/offline names, search labels/summaries/organization/offline information, and placeholders/status messages. Preserve gray offline semantics, disabled controls, global tokens, geometry, typography, zoom and platform branches. Ship as v0.54.11. |
+| #302 | OPT-30: keyboard list actions | Use native type=button controls for conversations, contact groups/peers and all global-search result categories. Tab/Enter/Space follow native behavior and existing click callbacks, with a local inset focus-visible outline. Preserve double-click chat, context menus, Escape, geometry, font inheritance, truncation, reduced motion and IME/platform branches. Expose expanded/current/contact-status semantics without new global shortcuts. Ship as v0.54.12. |
+| #303 | Conversation image navigation | Add Previous/Next canvas buttons over complete local conversation history in messages.seq order. Reuse managed-media validation, skip unavailable media, deduplicate group transfers by message, keep window bounds, and reset image/OCR state. Add a read-only local IPC without wire/schema/dependency changes. Ship as v0.55.0. |
+| #304 | In-image text selection on low-end desktops | User chose manual recognition with result caching. Replace the separate OCR panel with a native transparent line text layer; one local cancellable single-threaded Worker, bounded caches, no automatic or parallel inference. Keep models, resolution, wire protocol, schema, dependencies and CSP. Ship as v0.56.0. |
+| #305 | Selection alignment and cursor | Fit native text boxes to OCR bounds and keep the text cursor throughout a text selection gesture. Preserve native selection and bounded OCR work. Ship as v0.56.1. |
+
+## 9. Open items
+
+- Remote viewing #308/#309: the 10 fps target is agreed. Confirm separate-window versus in-chat presentation, measure quality defaults/actual fps and low-end performance, validate Linux lock signals, and establish the support matrix. Implementation has not started.
+- New proposal: Auto/Economy/Standard/Smooth, with Auto as default and no cross-session memory, awaits product confirmation; automatic thresholds need performance trials.
+- Complete peer-to-peer update package retention, validation, apply/restart, progress, and recovery.
+- Target-platform smoke testing on Win7 x64/ia32, UOS/Debian x64/arm64, and macOS.
+- macOS universal/Intel packaging evaluation.
+- Neiwangtong compatibility remains paused and must not enter implementation without a new product decision.
+- Application UI supports Chinese and English as of v0.57.0 (#307); repository documentation supports English independently.
+
+## 10. Translation maintenance
+
+Update this document whenever the current functional or non-functional requirements change. Preserve decision numbers and update the canonical Chinese decision ledger first. Historical superseded experiments may remain summarized in English when they no longer affect current behavior.
+
+- **2026-09-07, decision #306, v0.56.2:** built-in emoji retain transparent Unicode text beneath local SVGs for native selection/copy without extra line breaks; whole-message copy retains original text. The Win7 editor copies/cuts its existing logical draft selection. Linux text inputs use native insertText only for explicit NumLock-on Numpad digits or matching navigation keys, without modifiers or composition; consume events only on successful insertion. Readonly/disabled fields, NumLock-off navigation, Windows and macOS keep native behavior. No protocol, schema, IPC or dependency changes. UOS native event-chain verification remains a target-platform check.
+
+## Decision #307: Application languages (v0.57.0)
+
+Ship Simplified Chinese and English with an immediate, persistent language selector. New installations use Chinese on Chinese systems and English otherwise; existing configurations keep Chinese. Cover every application window, tray, notification and application-owned prompt. Preserve user content and historical system messages. New system messages include local template metadata for rendering in either language. All resources remain offline.
+
+## Decision #308: Remote desktop viewing (2026-09-16, design only)
+
+Split read-only viewing from the earlier remote-assistance evaluation: explicit per-session consent, single-screen low-frame-rate JPEG, existing TCP port, plaintext, persistent stop feedback, and lock/disconnect termination. Document protocol, architecture, UI proposal, failure handling, and validation before implementation. Exact defaults and window presentation remain proposals as stated above. No application code or capabilities change; package version remains **0.57.0**, and a future feature implementation increments the minor version under #53/#73.
+
+## Decision #309: 10 fps target (2026-09-16, design only)
+
+The user requested smoother viewing on the LAN and selected a **10 fps default target**, replacing the initial frame-rate trial proposal. Use a 100ms minimum sampling-start interval and a 5 MiB/s JPEG budget matching 512 KiB × 10 frames. Consume bandwidth on demand. Keep one outstanding frame, backpressure, deadlines, and lower achieved fps when necessary; record actual fps/CPU before claiming support. Quality/resolution remain experimental, and application **v0.57.0** is unchanged.
+
+2026-09-16 proposal supplement: the subsequent discussion adds four frame-rate modes and automatic adaptation as review candidates, separately marked from confirmed #309. Default mode and implementation remain unapproved.
+
+- 2026-09-16, decision #310: v0.58.0 implements view-only remote assistance, independent windows, Auto (10/5/3 fps) and manual Economy/Standard/Smooth modes. Consent, one-frame backpressure, bounded deadlines, lock detection and forced window cleanup are covered by local tests. Physical target-platform permission and performance checks remain pending; this iteration is not a release.
+
+## Review refinement (#311, v0.58.1)
+
+Keep the existing view-only consent flow and four modes. Fix clipped source-selection actions, compact the viewing toolbar and persistent sharing window, reduce redundant image work and capture rate, and make Linux lock detection asynchronous and recoverable. Preserve Electron 22, Node 16, Chrome 108, single-frame backpressure, and separate physical-platform acceptance.
+
+- 2026-09-17, #311: review compatibility, low-end performance and UI; application **0.58.0 → 0.58.1**.
+
+## Assistance interaction refinement (#312)
+
+Decision #312 (v0.59.0): confirm the explanation and target before sending a request. Each legitimate request creates one local system card in each private chat, updated in place through consent, rejection, cancellation, timeout and completion. Connected sessions show start/end times and monotonic duration, excluding invitation waiting. Unfinished records after abnormal exit show interruption with unknown end/duration. Cards carry no screen images, credentials or selected-source metadata; existing chat export/backup includes only these lifecycle records. No unread increments, forwarding or recall.
+
+- 2026-09-17, v2.90, decision #313, application **0.59.1**: align assistance cards like ordinary messages using the persisted initiator (`isMine`): self on the right, peer on the left. Preserve direction through rejection, cancellation, completion and history reload. Reuse existing row layout and spacing; no wire/storage changes. Ordinary system notices remain centered.
+
+- 2026-09-17, v2.91, #314, application **0.59.2**: keep one card on the initiator's side for each session, updating it through request, start and end without appending lifecycle messages. Only a new request creates another card. Show a compact name/status and time/duration summary; keep full timing and reasons in native hover and accessible descriptions. Remove redundant direction text, timing table and normal-session banner, preserving request-failure feedback. No ticking timers, protocol or storage changes.
+
+## Decision #315 — local diagnostics
+
+Version 0.60.0 adds Settings → About → Diagnostics and feedback. Export a local ZIP, copy a redacted environment summary and reveal the saved file. No uploads. Explicit lifecycle/error metadata only; never chat/file/image/clipboard content, credentials or raw error messages. Keep up to seven days and 10 MiB, with bounded asynchronous buffers and repetition suppression. Default node/address aliases; optionally include addresses observed during this run. Preserve evidence of an unclean previous exit. Include a bug-report template and log locations. Native crashes may provide no stack; no memory dumps, continuous monitoring or automatic repair.
+
+- 2026-09-17: Decision #315, application **0.60.0**; diagnostics design recorded before implementation.
+
+- 2026-09-18: Decision #316, application **0.60.1**: fix contact refresh after independent company, department, team or avatar changes. Profile saves and runtime capability changes share a monotonic persisted revision. Changed full profiles at the same revision also trigger the existing UI and database updates. Duplicate content stays quiet; older revisions and online source-address changes remain rejected. No new polling, wire fields, dependencies or schema changes.
+
+## Discovery and scan reliability (decision #317, v0.60.2)
+
+Unknown heartbeats trigger throttled full-profile handshakes. Optional `probeId` in entry/alive and capability `dp1` correlate fresh replies; directed replies bypass discovery jitter with a one-second per-peer limit. Active probes use a two-second deadline with one retry for dp1 peers, or twenty seconds with a retry at ten seconds for legacy peers. Equal profile revisions use sender timestamps to reject delayed data; a matching fresh reply resolves clock rollback/ties. Legacy peers without correlation retain best-effort timestamp ordering.
+
+Global, single-range and background scans share one queue: manual work takes priority while background progress is retained. Minimum address delays remain 8ms/62ms. Completion records the scan time and schedules the next round after twelve hours plus thirty-to-ninety-minute jitter; restart, deletion, eligibility and shutdown are checked. Range advertisements require an online peer and matching source IP/UDP port. Gossip sends at most one packet per target per 50ms and coalesces duplicate requests. Bridges distribute addresses; endpoints still require direct UDP/TCP reachability. No dependencies or database migrations are added.

@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>过程台 · local-api（候选 a 桩）</title>
+<!-- 提纲级静态桩：不连真后端；SSE/渲染库仅以注释标出接入点 -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+<style>
+  body{font:14px/1.6 -apple-system,system-ui,sans-serif;margin:0;display:flex;height:100vh}
+  aside{width:220px;border-right:1px solid #ddd;padding:12px;overflow:auto}
+  main{flex:1;display:flex;flex-direction:column}
+  .arch{color:#888}
+  .member{padding:6px 8px;border-radius:6px;cursor:pointer}
+  .member.active{background:#eef}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+  .idle{background:#58a6ff}.easy{background:#3fb950}.busy{background:#d29922}
+  .overload{background:#f0883e}.about{background:#f85149}
+  header{padding:8px 12px;border-bottom:1px solid #ddd;display:flex;gap:8px;align-items:center}
+  select,input{padding:4px 6px}
+  #feed{flex:1;overflow:auto;padding:12px}
+  .turn{border-left:3px solid #ccc;padding-left:8px;margin-bottom:14px}
+  .evt{margin:2px 0;font-family:ui-monospace,monospace;font-size:12px}
+  .kind-thought{color:#8a8}.kind-tool{color:#a8f}.kind-perm{color:#fa0}
+  pre{background:#f6f8fa;padding:6px;border-radius:4px;overflow:auto}
+</style>
+</head>
+<body>
+<aside>
+  <h3>成员</h3>
+  <!-- 活跃 / 归档两区：静态桩只列活跃 -->
+  <div class="member active"><span class="dot easy"></span>成员 A · 有点忙</div>
+  <div class="member"><span class="dot idle"></span>成员 B · 空闲</div>
+  <div class="member arch"><span class="dot"></span>成员 C · 已归档</div>
+</aside>
+<main>
+  <header>
+    <b>成员 A · 过程流</b>
+    <select id="typeFilter">
+      <option value="">全部类型</option>
+      <option>thought</option><option>tool_call</option>
+      <option>tool_result</option><option>perm</option><option>output</option>
+    </select>
+    <input id="search" placeholder="搜索原文…" size="16">
+    <!-- SSE 接入点（真实现时替换为）：
+         const es = new EventSource('/events?memberId=A');
+         es.onmessage = e => append(JSON.parse(e.data)); -->
+  </header>
+  <div id="feed">
+    <div class="turn">
+      <h4>Turn 3 · 目标：重构 parser</h4>
+      <div class="evt kind-thought">thought · 需要先看 token 流…</div>
+      <div class="evt kind-tool">tool_call · Read(src/lexer.ts:1-80)</div>
+      <div class="evt kind-tool">tool_result · 80 行</div>
+      <pre><code class="language-ts">// 代码块：highlight.js 免费渲染
+export function lex(s: string) { /* … */ }</code></pre>
+      <div class="evt">output · 已改完 lexer，见下一条终版。</div>
+    </div>
+    <div class="turn">
+      <h4>Turn 2 · …</h4>
+      <div class="evt">（同上结构，归档折叠省略）</div>
+    </div>
+  </div>
+</main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

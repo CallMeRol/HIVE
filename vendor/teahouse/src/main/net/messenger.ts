@@ -1,0 +1,340 @@
+import type { RemoteInfo } from 'node:dgram'
+import { createConnection } from 'node:net'
+import { EventEmitter } from 'node:events'
+import {
+  MSG_TYPES,
+  TIMINGS,
+  UDP_MAX_PAYLOAD,
+  type AckPayload,
+  type Envelope,
+  type Timings
+} from '../../shared/protocol'
+import { decodeTcpEnvelopeObject, encode, makeEnvelope } from './codec'
+import { encodeFrame, FrameReader } from './frame'
+import type { UdpChannel } from './udp'
+import type { PeerRegistry } from './peer-registry'
+
+// 可靠消息通道（protocol §7.2）：msg + ack、退避重传、离线补发、持久化去重。
+// 存储经接口注入：生产用 SQLite repo，测试用内存实现 —— 本模块保持零 Electron / 零 native 依赖。
+
+export interface QueueStore {
+  enqueue(msgId: string, peerId: string, envelopeJson: string, created: number): void
+  listByPeer(peerId: string): Array<{ msgId: string; envelopeJson: string }>
+  /** 复合键删除：群消息同一 msgId 会给多个收件人各排一条（§7.4） */
+  remove(msgId: string, peerId: string): void
+  /** 清理过期与超限条目，返回被裁剪的 (msgId, peerId) 对 */
+  prune(ttlMs: number, maxPerPeer: number): Array<{ msgId: string; peerId: string }>
+}
+
+export interface DedupStore {
+  has(msgId: string): boolean
+  add(msgId: string, recvTs: number): void
+  prune(ttlMs: number): void
+}
+
+export type SendOutcome = 'sent' | 'queued'
+
+interface PendingEntry {
+  timer: ReturnType<typeof setTimeout> | null
+  expected: { ip: string; udpPort: number } | null
+  settle: (acked: boolean) => void
+}
+
+export class Messenger extends EventEmitter {
+  private readonly screenSeen = new Map<string, number>()
+  private readonly udp: UdpChannel
+  private readonly registry: PeerRegistry
+  private readonly selfId: string
+  private readonly queue: QueueStore
+  private readonly dedup: DedupStore
+  private readonly t: Timings
+  private readonly pending = new Map<string, PendingEntry>()
+  private readonly flushing = new Set<string>()
+  private readonly cancelledQueued = new Set<string>()
+
+  constructor(opts: {
+    udp: UdpChannel
+    registry: PeerRegistry
+    selfId: string
+    queue: QueueStore
+    dedup: DedupStore
+    timings?: Partial<Timings>
+  }) {
+    super()
+    this.udp = opts.udp
+    this.registry = opts.registry
+    this.selfId = opts.selfId
+    this.queue = opts.queue
+    this.dedup = opts.dedup
+    this.t = { ...TIMINGS, ...opts.timings }
+
+    this.udp.on('envelope', (env: Envelope, known: boolean, rinfo: RemoteInfo) => {
+      if (known) this.handle(env, rinfo)
+    })
+    // 对端上线（发现层判定）→ 补发发车
+    this.registry.on('online', (nodeId: string) => {
+      this.flushQueueSafely(nodeId)
+    })
+  }
+
+  /** 发送用户消息：ACK 确认即 sent；重传耗尽 → 入队 + 对端标离线，返回 queued */
+  async sendUserMessage(peerId: string, env: Envelope): Promise<SendOutcome> {
+    const key = this.queueKey(peerId, env.id)
+    const acked = await this.sendAwaitAck(peerId, env)
+    if (acked) {
+      this.cancelledQueued.delete(key)
+      return 'sent'
+    }
+    if (this.cancelledQueued.delete(key)) return 'queued'
+    this.queue.enqueue(env.id, peerId, JSON.stringify(env), Date.now())
+    this.registry.markOffline(peerId) // 连发不应 → 立即标离线，不等心跳超时（§6.2）
+    return 'queued'
+  }
+
+  /** 可靠发送但不入队（文件控制报文用——对方离线时直接失败，决议 #4） */
+  async sendReliable(peerId: string, env: Envelope, signal?: AbortSignal): Promise<boolean> {
+    const acked = await this.sendAwaitAck(peerId, env, signal)
+    if (!acked && !signal?.aborted) this.registry.markOffline(peerId)
+    return acked
+  }
+
+  /** 尽力而为单发：不重试、不等 ACK、不改在线状态，丢失由对端超时兜底。
+   *  供 avatar miss 等提示型报文使用（决议 #249）——旧端整包忽略且不回 ACK，
+   *  走可靠通道会把对端误判为离线，故必须用本方法。仅限 UDP 单包大小。 */
+  sendBestEffort(peerId: string, env: Envelope): void {
+    const record = this.registry.get(peerId)
+    if (!record) return
+    const buf = encode(env)
+    if (buf.length > UDP_MAX_PAYLOAD) return
+    this.udp.sendBuffer(buf, record.ip, record.udpPort)
+  }
+
+  /** 对端上线后按原顺序补发；中途再失败即停（保持顺序，等下次上线） */
+  async flushQueue(peerId: string): Promise<void> {
+    if (this.flushing.has(peerId)) return
+    this.flushing.add(peerId)
+    try {
+      for (const item of this.queue.listByPeer(peerId)) {
+        const key = this.queueKey(peerId, item.msgId)
+        if (this.cancelledQueued.delete(key)) continue
+        let env: Envelope
+        try {
+          env = JSON.parse(item.envelopeJson) as Envelope
+        } catch {
+          this.queue.remove(item.msgId, peerId) // 损坏条目直接清掉
+          continue
+        }
+        ;(env.payload as { resend?: boolean }).resend = true
+        const acked = await this.sendAwaitAck(peerId, env)
+        if (!acked) break
+        this.queue.remove(item.msgId, peerId)
+        this.cancelledQueued.delete(key)
+        this.emit('status', item.msgId, 'sent')
+      }
+    } finally {
+      this.flushing.delete(peerId)
+    }
+  }
+
+  /** 周期清理（启动 + 每小时）：返回被裁剪的 (msgId, peerId) 供上层标 failed */
+  prune(): Array<{ msgId: string; peerId: string }> {
+    this.dedup.prune(this.t.dedupTtl)
+    return this.queue.prune(this.t.queueTtl, this.t.queueMaxPerPeer)
+  }
+
+  /** 上层撤回原消息后，补发队列里不能再保留原文信封。 */
+  dropQueuedMessage(msgId: string, peerIds: string[]): void {
+    for (const peerId of peerIds) {
+      const key = this.queueKey(peerId, msgId)
+      const pending = this.pending.get(key)
+      if (pending || this.flushing.has(peerId)) this.cancelledQueued.add(key)
+      pending?.settle(false)
+      this.queue.remove(msgId, peerId)
+    }
+  }
+
+  /** TCP 控制帧入口：复用同一套入站白名单、去重和事件分发。 */
+  acceptTcpEnvelope(raw: Envelope, remoteAddress?: string): boolean {
+    const result = decodeTcpEnvelopeObject(raw)
+    if (!result.ok || !result.known) return false
+    const env = result.env
+    if (env.from === this.selfId) return false
+    if (!isReliableControlType(env.type)) {
+      return false
+    }
+    if (env.type === MSG_TYPES.screen) {
+      if (!this.isScreenSource(env.from, remoteAddress)) return false
+      if (!this.seenScreen(env)) this.emit('incoming', env, { address: remoteAddress })
+      return true
+    }
+    if (this.dedup.has(env.id)) return true
+    this.dedup.add(env.id, Date.now())
+    this.emit('incoming', env)
+    return true
+  }
+
+  /** 发送并等待 ACK：按 ackRetrySchedule 退避重发，每次重发都重读对端最新地址。
+   *  等待表按 (收件人, 信封 id) 复合键——群消息同一信封并发发往多个成员互不串线（§7.4） */
+  private sendAwaitAck(peerId: string, env: Envelope, signal?: AbortSignal): Promise<boolean> {
+    if (signal?.aborted) return Promise.resolve(false)
+    const buf = encode(env)
+    if (buf.length > UDP_MAX_PAYLOAD) {
+      return this.sendTcpAwaitAck(peerId, env, signal)
+    }
+    return new Promise((resolve) => {
+      const key = this.queueKey(peerId, env.id)
+      const old = this.pending.get(key)
+      old?.settle(false) // 同键重入（手动重发）：先了结旧等待
+
+      const entry: PendingEntry = {
+        timer: null,
+        expected: null,
+        settle: (acked: boolean) => {
+          if (this.pending.get(key) !== entry) return
+          this.pending.delete(key)
+          if (entry.timer) clearTimeout(entry.timer)
+          signal?.removeEventListener('abort', abort)
+          resolve(acked)
+        }
+      }
+      this.pending.set(key, entry)
+      const abort = (): void => entry.settle(false)
+      signal?.addEventListener('abort', abort, { once: true })
+
+      const delays = this.t.ackRetrySchedule
+      let attempt = 0
+      const step = (): void => {
+        if (attempt === delays.length) {
+          void this.sendTcpAwaitAck(peerId, env, signal).then((acked) => entry.settle(acked))
+          return
+        }
+        const record = this.registry.get(peerId)
+        if (!record) {
+          queueMicrotask(() => entry.settle(false))
+          return
+        }
+        entry.expected = { ip: record.ip, udpPort: record.udpPort }
+        this.udp.sendBuffer(buf, record.ip, record.udpPort)
+        entry.timer = setTimeout(step, delays[attempt])
+        attempt += 1
+      }
+      step()
+    })
+  }
+
+  private sendTcpAwaitAck(peerId: string, env: Envelope, signal?: AbortSignal): Promise<boolean> {
+    if (signal?.aborted) return Promise.resolve(false)
+    const record = this.registry.get(peerId)
+    if (!record) return Promise.resolve(false)
+    return new Promise((resolve) => {
+      let settled = false
+      const socket = createConnection({ host: record.ip, port: record.profile.tcpPort })
+      let timer: ReturnType<typeof setTimeout>
+      const settle = (ok: boolean): void => {
+        if (settled) return
+        settled = true
+        clearTimeout(timer)
+        signal?.removeEventListener('abort', abort)
+        socket.destroy()
+        resolve(ok)
+      }
+      timer = setTimeout(() => settle(false), 7_000)
+      const abort = (): void => settle(false)
+      signal?.addEventListener('abort', abort, { once: true })
+      const reader = new FrameReader(
+        (frame) => {
+          if (frame.type === 'msg-ack' && frame.ackFor === env.id) {
+            settle(true)
+            return
+          }
+          if (frame.type === 'err') settle(false)
+        },
+        () => undefined,
+        () => settle(false)
+      )
+
+      socket.setNoDelay(true)
+      socket.on('connect', () => {
+        socket.write(encodeFrame({ type: 'msg', envelope: env }))
+      })
+      socket.on('data', (chunk) => reader.feed(chunk))
+      socket.on('error', () => settle(false))
+      socket.on('close', () => settle(false))
+    })
+  }
+
+  private queueKey(peerId: string, msgId: string): string {
+    return `${peerId}|${msgId}`
+  }
+
+  private flushQueueSafely(peerId: string): void {
+    this.flushQueue(peerId).catch((err) => {
+      if (isDatabaseClosedError(err)) return
+      console.warn('[messenger] 补发队列刷新失败：', err)
+    })
+  }
+
+  private handle(env: Envelope, rinfo: RemoteInfo): void {
+    if (env.from === this.selfId) return
+
+    if (env.type === MSG_TYPES.ack) {
+      const ackFor = (env.payload as AckPayload).ackFor
+      const entry = this.pending.get(`${env.from}|${ackFor}`)
+      if (entry?.expected?.ip === rinfo.address && entry.expected.udpPort === rinfo.port) {
+        entry.settle(true)
+      }
+      return
+    }
+
+    // 可靠类型：无条件回 ACK（含重复），让对端停止重传
+    if (isReliableControlType(env.type)) {
+      // 屏幕授权绑定原有地址；不能先 touch 把不可信来源变成当前地址。
+      if (env.type === MSG_TYPES.screen && !this.isScreenSource(env.from, rinfo.address)) return
+      if (env.type !== MSG_TYPES.screen && this.registry.get(env.from)) {
+        const record = this.registry.touch(env.from, rinfo.address, rinfo.port)
+        if (!record) return
+      }
+      const ack = makeEnvelope<AckPayload>(MSG_TYPES.ack, this.selfId, { ackFor: env.id })
+      this.udp.send(ack, rinfo.address, rinfo.port)
+
+      if (env.type === MSG_TYPES.screen) {
+        if (!this.seenScreen(env)) this.emit('incoming', env, rinfo)
+        return
+      }
+
+      if (this.dedup.has(env.id)) return // 补发/重传造成的重复，只应答不重复处理
+      this.dedup.add(env.id, Date.now())
+      this.emit('incoming', env, rinfo)
+    }
+  }
+  private isScreenSource(peerId: string, ip?: string): boolean {
+    const peer = this.registry.get(peerId)
+    return Boolean(peer && ip && peer.ip === ip.replace(/^::ffff:/, ''))
+  }
+
+  private seenScreen(env: Envelope): boolean {
+    const now = Date.now()
+    for (const [key, time] of this.screenSeen) if (now - time > 120_000) this.screenSeen.delete(key)
+    const key = `${env.from}|${env.id}`
+    if (this.screenSeen.has(key)) return true
+    if (this.screenSeen.size >= 256) this.screenSeen.delete(this.screenSeen.keys().next().value!)
+    this.screenSeen.set(key, now)
+    return false
+  }
+}
+
+function isDatabaseClosedError(err: unknown): boolean {
+  return err instanceof Error && /database connection is not open/i.test(err.message)
+}
+
+function isReliableControlType(type: string): boolean {
+  return (
+    type === MSG_TYPES.msg ||
+    type === MSG_TYPES.fileCtl ||
+    type === MSG_TYPES.group ||
+    type === MSG_TYPES.avatar ||
+    type === MSG_TYPES.update ||
+    // 共享文件柜控制面（§8.2）：list-ok 常超 UDP 上限，必须能走 TCP 控制帧兜底
+    type === MSG_TYPES.share || type === MSG_TYPES.screen
+  )
+}

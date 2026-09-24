@@ -1,0 +1,30 @@
+rig root: /var/folders/d9/_0gbv97x6332wsrqhr4fcyj80000gn/T/hive-recovery-kAadHT
+=== Hive #61 崩溃恢复 rig ===（app=vendor/teahouse/release/mac-arm64/Hive.app）
+  [gui] [hive] 成员登记表 /var/folders/d9/_0gbv97x6332wsrqhr4fcyj80000gn/T/hive-recovery-kAadHT/gui/hive/members.json：1 条
+  [gui] [hangar] 账本根 /var/folders/d9/_0gbv97x6332wsrqhr4fcyj80000gn/T/hive-recovery-kAadHT/gui/artifacts
+  [gui] [hive] pending 确认闸门已启用（PANTRY_PENDING=1）
+  [gui] [recovery] 派遣 dispatch-interrupted 执行中断 → 待领取（@real-member）
+  [gui] [recovery] 清掉幽灵 pending：ghost-member（登记表已无此成员）
+  [gui] [recovery] 完成：接入 0/0 拉起，中断派遣 1 转待领取，幽灵 pending 1
+  [gui] [local-api] 监听 127.0.0.1:20880
+PASS  AC2 中断派遣未被标记成功（outcome≠started） — outcome=failed
+PASS  AC2 中断派遣留了失败原因（显式报告，不静默） — reason=主进程重启导致执行中断（恢复不造假：不伪装活跃，不自动补派）
+PASS  AC2 不重复派遣：派遣表仍只有这一条，memberIds 未被追加 — dispatches=1 memberIds=1
+PASS  AC2 slot 已归还（未继续占用端口段） — slots=[]
+PASS  AC3 中断派遣已转待领取且可被接手 — status=claimable
+PASS  AC3 待领取保留了原始目标（接手者不需要父会话历史） — goalOneLine=做调研并交回交接文档
+PASS  AC3 真实成员的待领取草稿完整保留 — pendings=real-member
+PASS  AC3 幽灵 pending 已清掉（确认键不会按给幽灵）
+PASS  AC3 冻结目标跨重启保留（守卫降级后仍知道在守什么）
+PASS  AC3 拒绝记录跨重启保留（fail-closed 留痕不丢） — 1 行
+PASS  AC1 守卫不可用（未配判定器通路）时进程仍正常启动
+PASS  AC1 守卫不可用不产生伪造的「已判定」记录 — 无判定器时不应写 in-scope
+PASS  AC3 守卫降级警告（undetermined 留痕）跨重启完整保留 — 1 条
+PASS  AC3 警告留痕保留了判定输入（可审计：目标 + 请求原文） — goal=把 launch-pla… request=顺便把按钮颜色改成 #2…
+PASS  AC1 交接损坏已注入（账本哈希与文件实际内容不符） — 账本=000000000000… 实际=a892fbe2dcbc…
+PASS  AC2 损坏交接未被标记为已复验通过（不把坏的交手当成功） — verified=false
+  [gui] [local-api] 收到优雅退出请求
+PASS  AC4 优雅退出
+PASS  AC4 退出后无残留 Electron / Node 进程 — 残留 pid=[]
+
+全部通过。

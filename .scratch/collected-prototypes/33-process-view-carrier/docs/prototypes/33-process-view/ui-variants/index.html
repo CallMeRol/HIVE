@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>过程台 · 承载面 UI Prototype（#33）</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font: 14px/1.6 -apple-system, system-ui, "PingFang SC", sans-serif; background: #f5f5f7; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* ── 共享样本数据 ── */
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; flex-shrink: 0; }
+  .idle { background: #58a6ff; } .easy { background: #3fb950; } .busy { background: #d29922; }
+  .overload { background: #f0883e; } .about { background: #f85149; }
+  .offline { background: #aaa; }
+
+  /* ══ Variant A：传统 IDE 三栏 ══ */
+  #va { display: flex; flex: 1; overflow: hidden; }
+  #va .sidebar { width: 200px; background: #1e1e28; color: #ccc; padding: 10px; overflow: auto; }
+  #va .sidebar h4 { color: #888; font-size: 11px; text-transform: uppercase; margin: 8px 0 4px; }
+  #va .member { padding: 5px 8px; border-radius: 4px; cursor: pointer; font-size: 13px; }
+  #va .member:hover, #va .member.active { background: #33334a; color: #fff; }
+  #va .member.arch { opacity: .45; font-style: italic; }
+  #va .middle { width: 260px; border-right: 1px solid #ddd; background: #fff; overflow: auto; padding: 10px; }
+  #va .sess { padding: 8px; border-radius: 6px; margin-bottom: 6px; cursor: pointer; border: 1px solid transparent; }
+  #va .sess:hover, #va .sess.active { border-color: #58a6ff; background: #f0f7ff; }
+  #va .sess .meta { font-size: 11px; color: #888; margin-top: 2px; }
+  #va .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: #fafafa; }
+  #va .toolbar { padding: 8px 12px; border-bottom: 1px solid #ddd; background: #fff; display: flex; gap: 8px; align-items: center; }
+  #va .feed { flex: 1; overflow: auto; padding: 12px; }
+  #va .turn { border-left: 3px solid #ccc; padding-left: 10px; margin-bottom: 16px; }
+  #va .turn h4 { font-size: 13px; color: #555; margin-bottom: 4px; }
+  #va .evt { font-family: ui-monospace, monospace; font-size: 12px; margin: 2px 0; }
+  #va .k-thought { color: #6a6; } #va .k-tool { color: #88f; } #va .k-perm { color: #c90; } #va .k-guard { color: #c33; }
+
+  /* ══ Variant B：聊天式时间线（单栏） ══ */
+  #vb { display: flex; flex: 1; flex-direction: column; overflow: hidden; max-width: 760px; margin: 0 auto; width: 100%; background: #fff; }
+  #vb header { padding: 10px 16px; border-bottom: 1px solid #eee; display: flex; gap: 10px; align-items: center; background: #fff; }
+  #vb .feed { flex: 1; overflow: auto; padding: 16px; }
+  #vb .msg { display: flex; gap: 10px; margin-bottom: 12px; }
+  #vb .msg .who { width: 100px; text-align: right; font-size: 12px; color: #888; flex-shrink: 0; padding-top: 2px; }
+  #vb .msg .body { flex: 1; background: #f7f7f9; border-radius: 8px; padding: 8px 12px; font-family: ui-monospace, monospace; font-size: 12px; }
+  #vb .msg.human .body { background: #e8f4ff; font-family: inherit; }
+  #vb .turn-divider { text-align: center; color: #aaa; font-size: 11px; margin: 14px 0 8px; position: relative; }
+  #vb .turn-divider::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: #eee; }
+  #vb .turn-divider span { background: #fff; padding: 0 10px; position: relative; }
+
+  /* ══ Variant C：仪表盘卡片网格 ══ */
+  #vc { display: flex; flex: 1; flex-direction: column; overflow: hidden; padding: 16px; gap: 12px; }
+  #vc .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; overflow: auto; }
+  #vc .card { background: #fff; border-radius: 10px; padding: 12px; border: 1px solid #e5e5ea; cursor: pointer; }
+  #vc .card:hover { border-color: #58a6ff; }
+  #vc .card.sel { border-color: #58a6ff; box-shadow: 0 0 0 2px #58a6ff33; }
+  #vc .card h4 { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+  #vc .card .goal { font-size: 12px; color: #666; margin-bottom: 6px; }
+  #vc .pct { font-size: 22px; font-weight: 600; }
+  #vc .spark { display: flex; gap: 2px; margin-top: 4px; align-items: flex-end; height: 24px; }
+  #vc .spark i { width: 5px; background: #58a6ff; border-radius: 1px; }
+  #vc .detail { background: #fff; border-radius: 10px; border: 1px solid #e5e5ea; padding: 12px; max-height: 220px; overflow: auto; font-family: ui-monospace, monospace; font-size: 12px; }
+
+  /* ── 浮动 switcher ── */
+  .switcher { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; background: #1c1c1e; color: #fff; padding: 8px 14px; border-radius: 999px; box-shadow: 0 4px 20px rgba(0,0,0,.35); z-index: 99; font-size: 13px; }
+  .switcher button { background: #3a3a3c; color: #fff; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer; font-size: 14px; }
+  .switcher button:hover { background: #48484a; }
+  .switcher .label { min-width: 180px; text-align: center; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+
+<!-- ═══ Variant A：IDE 三栏（左成员 · 中会话 · 右过程流） ═══ -->
+<div id="va" hidden>
+  <div class="sidebar">
+    <h4>活跃</h4>
+    <div class="member active"><span class="dot busy"></span>Arch · 有点忙</div>
+    <div class="member"><span class="dot easy"></span>Bob · 轻松</div>
+    <div class="member"><span class="dot idle"></span>Cy · 空闲</div>
+    <h4>归档</h4>
+    <div class="member arch">Dee · 已退群</div>
+  </div>
+  <div class="middle">
+    <h4 style="margin-bottom:8px;color:#555">Arch · 会话</h4>
+    <div class="sess active"><b>session_8f2a</b><div class="meta">重构 parser · Turn 4 · 深度 2</div></div>
+    <div class="sess"><b>session_1c93</b><div class="meta">补全测试 · Turn 7 · 深度 1</div></div>
+  </div>
+  <div class="main">
+    <div class="toolbar">
+      <b>session_8f2a · 过程流</b>
+      <select><option>全部类型</option><option>thought</option><option>tool_call</option><option>tool_result</option><option>perm</option><option>guard</option></select>
+      <input placeholder="搜索原文…" size="14">
+    </div>
+    <div class="feed">
+      <div class="turn"><h4>Turn 4 · 目标：重构 parser</h4>
+        <div class="evt k-thought">thought · token 流有歧义，先看 lexer…</div>
+        <div class="evt k-tool">tool_call · Read(src/lexer.ts)</div>
+        <div class="evt k-tool">tool_result · 80 行</div>
+      </div>
+      <div class="turn"><h4>Turn 3 · …</h4>
+        <div class="evt k-perm">perm_request · 写 src/parser.ts（主人已批）</div>
+        <div class="evt k-guard">guard · 判定通过 · conf 0.92</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Variant B：聊天式单栏时间线（类群聊回看） ═══ -->
+<div id="vb" hidden>
+  <header>
+    <b>Arch · 过程台</b>
+    <select><option>全部类型</option><option>thought</option><option>tool</option><option>perm</option></select>
+    <input placeholder="搜索…" size="12">
+    <span style="margin-left:auto;font-size:12px;color:#888">负担 38% · 有点忙</span>
+  </header>
+  <div class="feed">
+    <div class="turn-divider"><span>Turn 4 · 重构 parser</span></div>
+    <div class="msg"><div class="who">Arch<br>14:02</div><div class="body">thought · token 流有歧义，先看 lexer…</div></div>
+    <div class="msg"><div class="who">tool_call</div><div class="body">Read(src/lexer.ts) → 80 行</div></div>
+    <div class="msg human"><div class="who">你<br>14:03</div><div class="body">@Arch 记得保留旧接口</div></div>
+    <div class="msg"><div class="who">Arch<br>14:03</div><div class="body">收到，保留旧接口签名。</div></div>
+    <div class="turn-divider"><span>Turn 3</span></div>
+    <div class="msg"><div class="who">perm</div><div class="body">请求写 src/parser.ts（已批）</div></div>
+    <div class="msg"><div class="who">guard</div><div class="body">目标守卫 · 通过 · 0.92</div></div>
+  </div>
+</div>
+
+<!-- ═══ Variant C：仪表盘卡片网格（一屏看所有成员） ═══ -->
+<div id="vc" hidden>
+  <div style="display:flex;gap:10px;align-items:center">
+    <b>过程台 · 全成员</b>
+    <input placeholder="搜索成员 / 目标…" size="16">
+    <span style="margin-left:auto;font-size:12px;color:#888">4 成员 · 3 活跃 · 1 归档</span>
+  </div>
+  <div class="grid">
+    <div class="card sel">
+      <h4><span class="dot busy"></span>Arch</h4>
+      <div class="goal">重构 parser · Turn 4 · 深度 2</div>
+      <div class="pct">38% <span style="font-size:11px;color:#888">有点忙</span></div>
+      <div class="spark"><i style="height:20%"></i><i style="height:35%"></i><i style="height:55%"></i><i style="height:48%"></i><i style="height:70%"></i><i style="height:38%"></i></div>
+    </div>
+    <div class="card">
+      <h4><span class="dot easy"></span>Bob</h4>
+      <div class="goal">补全测试 · Turn 2</div>
+      <div class="pct">14% <span style="font-size:11px;color:#888">轻松</span></div>
+      <div class="spark"><i style="height:10%"></i><i style="height:22%"></i><i style="height:15%"></i><i style="height:28%"></i></div>
+    </div>
+    <div class="card">
+      <h4><span class="dot idle"></span>Cy</h4>
+      <div class="goal">空闲 · 等待派单</div>
+      <div class="pct">0% <span style="font-size:11px;color:#888">空闲</span></div>
+    </div>
+    <div class="card" style="opacity:.5">
+      <h4><span class="dot offline"></span>Dee <small>(已归档)</small></h4>
+      <div class="goal">退群 14:10 · 无活跃会话</div>
+    </div>
+  </div>
+  <div class="detail">
+    <b>Arch · session_8f2a · 最新事件</b><br>
+    <span style="color:#6a6">thought</span> token 流有歧义…<br>
+    <span style="color:#88f">tool_call</span> Read(src/lexer.ts)<br>
+    <span style="color:#c90">perm</span> 写 parser.ts（已批）<br>
+    <span style="color:#c33">guard</span> 通过 · 0.92
+  </div>
+</div>
+
+<div class="switcher">
+  <button onclick="cycle(-1)">←</button>
+  <span class="label" id="vlabel"></span>
+  <button onclick="cycle(1)">→</button>
+</div>
+
+<script>
+  const variants = [
+    { key: 'A', name: 'IDE 三栏', el: document.getElementById('va') },
+    { key: 'B', name: '聊天式时间线', el: document.getElementById('vb') },
+    { key: 'C', name: '仪表盘卡片', el: document.getElementById('vc') },
+  ];
+  let idx = 0;
+  function show(i) {
+    idx = (i + variants.length) % variants.length;
+    variants.forEach((v, j) => v.el.hidden = j !== idx);
+    const v = variants[idx];
+    document.getElementById('vlabel').textContent = `${v.key} (${v.name})`;
+    const url = new URL(location.href);
+    url.searchParams.set('variant', v.key);
+    history.replaceState(null, '', url);
+  }
+  function cycle(d) { show(idx + d); }
+  document.addEventListener('keydown', e => {
+    if (/INPUT|TEXTAREA/.test(e.target.tagName)) return;
+    if (e.key === 'ArrowLeft') cycle(-1);
+    if (e.key === 'ArrowRight') cycle(1);
+  });
+  const init = new URL(location.href).searchParams.get('variant');
+  const start = variants.findIndex(v => v.key === init);
+  show(start >= 0 ? start : 0);
+</script>
+</body>
+</html>

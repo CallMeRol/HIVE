@@ -1,0 +1,64 @@
+rig root: /var/folders/d9/_0gbv97x6332wsrqhr4fcyj80000gn/T/hive-dispatch56-e2e-lmSlXU
+可执行文件：/Users/rolex/Documents/Codes/githubProject/MyProject/hive/vendor/teahouse/release/mac-arm64/Hive.app/Contents/MacOS/Hive（打包 .app）
+  [b] [dispatch] 派遣服务已启用（POST /v1/dispatch）
+  [b] [local-api] 监听 127.0.0.1:31390
+  [b] [headless] up nodeId=hive-dispatch56-e2e-b udp=31378 tcp=31379 api=31390 agent=off
+  [a] [dispatch] 派遣服务已启用（POST /v1/dispatch）
+  [a] [local-api] 监听 127.0.0.1:31290
+PASS  A 节点就绪 — d4cbedf2-db44-419b-b48f-7ee418b4df4f
+PASS  B 占位成员就绪 — hive-dispatch56-e2e-b
+  [a] [local-api] SSE 订阅 +1（当前 1）
+PASS  建群成功 — 984b2e6c-a50e-40e6-b0b6-d4e7c33cc0b2
+  [a] [dispatch] attempt 1 失败：spawn 失败：spawn ENOTDIR
+  [a] [dispatch] attempt 2 失败：spawn 失败：spawn ENOTDIR
+  [a] [dispatch] attempt 1 失败：spawn 失败：spawn ENOTDIR
+  [a] [dispatch] attempt 2 失败：spawn 失败：spawn ENOTDIR
+  [a] [dispatch] attempt 1 失败：spawn 失败：spawn ENOTDIR
+  [a] [dispatch] attempt 2 失败：spawn 失败：spawn ENOTDIR
+FAIL  AC1 count=3 返回 started（默认并发 5 内） — {"dispatchId":"dispatch-1790197502648-1f494b3d","outcome":"claimable","task":{"dispatchId":"dispatch-1790197502648-1f494b3d-slot1","groupId":"984b2e6c-a50e-40e6-b0b6-d4e7c33cc0b2","dispatcherId":"d4cbedf2-db44-419b-b48f-7ee418b4df4f","goalOneLine":"批量调研 Hive 派遣机制的三条路径（rig 演示目标）","failedMemberId":"45da0798-23ab-4e40-be24-33a4a6ba44d8","reason":"spawn 失败：spawn ENOTDIR","status":"claimable","createdAt":1790197502657},"tasks":[{"dispatchId":"dispatch-1790197502648-1f494b3d-slot1","groupId":"984b2e6c-a50e-40e6-b0b6-d4e7c33cc0b2","dispatcherId":"d4cbedf2-db44-419b-b48f-7ee418b4df4f","goalOneLine":"批量调研 Hive 派遣机制的三条路径（rig 演示目标）","failedMemberId":"45da0798-23ab-4e40-be24-33a4a6ba44d8","reason":"spawn 失败：spawn ENOTDIR","status":"claimable","createdAt":1790197502657},{"dispatchId":"dispatch-1790197502648-1f494b3d-slot2","groupId":"984b2e6c-a50e-40e6-b0b6-d4e7c33cc0b2","dispatcherId":"d4cbedf2-db44-419b-b48f-7ee418b4df4f","goalOneLine":"批量调研 Hive 派遣机制的三条路径（rig 演示目标）","failedMemberId":"1f5b5d3b-e304-4df9-b555-836ca2ee1824","reason":"spawn 失败：spawn ENOTDIR","status":"claimable","createdAt":1790197502657},{"dispatchId":"dispatch-1790197502648-1f494b3d-slot3","groupId":"984b2e6c-a50e-40e6-b0b6-d4e7c33cc0b2","dispatcherId":"d4cbedf2-db44-419b-b48f-7ee418b4df4f","goalOneLine":"批量调研 Hive 派遣机制的三条路径（rig 演示目标）","failedMemberId":"5ab59600-7902-4d07-b28d-19c6619e8334","reason":"spawn 失败：spawn ENOTDIR","status":"claimable","createdAt":1790197502657}]}
+FAIL  AC1 三个成员各自上线（1:N 不是 1:1） — []
+PASS  AC1 派遣总量在 60s 内完成（三次 spawn 串行） — 13ms
+FAIL  AC5 三个成员各有独立身份与数据目录 — []
+PASS  AC5 每个成员独立进程与端口（三个 health 都活着且 nodeId 对得上） — []
+FAIL  AC1 三个成员的端口互不相同（同机不撞段） — []
+PASS  AC1 三个成员都进群成员表 — ["d4cbedf2-db44-419b-b48f-7ee418b4df4f","hive-dispatch56-e2e-b","45da0798-23ab-4e40-be24-33a4a6ba44d8","1f5b5d3b-e304-4df9-b555-836ca2ee1824","5ab59600-7902-4d07-b28d-19c6619e8334"]
+FAIL  AC1 SSE dispatch.event 一次带上整批三个成员（1:N 事件面） — null
+PASS  部分失败注入：depth=2 带 slot 3 三段端口已预占 — [28178,28179,28180]
+  [a] [dispatch] attempt 1 失败：spawn 失败：spawn ENOTDIR
+  [a] [dispatch] attempt 2 失败：spawn 失败：spawn ENOTDIR
+  [a] [dispatch] attempt 1 失败：spawn 失败：spawn ENOTDIR
+  [a] [dispatch] attempt 2 失败：spawn 失败：spawn ENOTDIR
+  [a] [dispatch] attempt 1 失败：spawn 失败：spawn ENOTDIR
+  [a] [dispatch] attempt 2 失败：spawn 失败：spawn ENOTDIR
+FAIL  AC2 无 barrier：部分成功即成功（两个上线、一个失败） — {"dispatchId":"dispatch-1790197510813-b7beafbe","outcome":"claimable","task":{"dispatchId":"dispatch-1790197510813-b7beafbe-slot1","groupId":"984b2e6c-a50e-40e6-b0b6-d4e7c33cc0b2","dispatcherId":"d4cbedf2-db44-419b-b48f-7ee418b4df4f","goalOneLine":"注定部分失败的演示目标","failedMemberId":"df9a9682-8fb9-4164-8545-b6fc8b81a276","reason":"spawn 失败：spawn ENOTDIR","status":"claimable","createdAt":1790197510831},"tasks":[{"dispatchId":"dispatch-1790197510813-b7beafbe-slot1","groupId":"984b2e6c-a50e-40e6-b0b6-d4e7c33cc0b2","dispatcherId":"d4cbedf2-db44-419b-b48f-7ee418b4df4f","goalOneLine":"注定部分失败的演示目标","failedMemberId":"df9a9682-8fb9-4164-8545-b6fc8b81a276","reason":"spawn 失败：spawn ENOTDIR","status":"claimable","createdAt":1790197510831},{"dispatchId":"dispatch-1790197510813-b7beafbe-slot2","groupId":"984b2e6c-a50e-40e6-b0b6-d4e7c33cc0b2","dispatcherId":"d4cbedf2-db44-419b-b48f-7ee418b4df4f","goalOneLine":"注定部分失败的演示目标","failedMemberId":"f4ada836-90c2-460d-b150-b88e7eb036ec","reason":"spawn 失败：spawn ENOTDIR","status":"claimable","createdAt":1790197510833},{"dispatchId":"dispatch-1790197510813-b7beafbe-slot3","groupId":"984b2e6c-a50e-40e6-b0b6-d4e7c33cc0b2","dispatcherId":"d4cbedf2-db44-419b-b48f-7ee418b4df4f","goalOneLine":"注定部分失败的演示目标","failedMemberId":"e71ca8ce-bb6c-4474-8af5-15c020f84b62","reason":"spawn 失败：spawn ENOTDIR","status":"claimable","createdAt":1790197510834}]}
+FAIL  AC2 失败成员独立结算成待领取（不拖死成功成员） — [{"dispatchId":"dispatch-1790197510813-b7beafbe-slot1","groupId":"984b2e6c-a50e-40e6-b0b6-d4e7c33cc0b2","dispatcherId":"d4cbedf2-db44-419b-b48f-7ee418b4df4f","goalOneLine":"注定部分失败的演示目标","failedMemberId":"df9a9682-8fb9-4164-8545-b6fc8b81a276","reason":"spawn 失败：spawn ENOTDIR","status":"claimable","createdAt":1790197510831},{"dispatchId":"dispatch-1790197510813-b7beafbe-slot2","groupId":"984b2e6c-a50e-40e6-b0b6-d4e7c33cc0b2","dispatcherId":"d4cbedf2-db44-419b-b48f-7ee418b4df4f","goalOneLine":"注定部分失败的演示目标","failedMemberId":"f4ada836-90c2-460d-b150-b88e7eb036ec","reason":"spawn 失败：spawn ENOTDIR","status":"claimable","createdAt":1790197510833},{"dispatchId":"dispatch-1790197510813-b7beafbe-slot3","groupId":"984b2e6c-a50e-40e6-b0b6-d4e7c33cc0b2","dispatcherId":"d4cbedf2-db44-419b-b48f-7ee418b4df4f","goalOneLine":"注定部分失败的演示目标","failedMemberId":"e71ca8ce-bb6c-4474-8af5-15c020f84b62","reason":"spawn 失败：spawn ENOTDIR","status":"claimable","createdAt":1790197510834}]
+PASS  AC2 失败成员的待领取任务带原目标与原因 — {"dispatchId":"dispatch-1790197510813-b7beafbe-slot1","groupId":"984b2e6c-a50e-40e6-b0b6-d4e7c33cc0b2","dispatcherId":"d4cbedf2-db44-419b-b48f-7ee418b4df4f","goalOneLine":"注定部分失败的演示目标","failedMemberId":"df9a9682-8fb9-4164-8545-b6fc8b81a276","reason":"spawn 失败：spawn ENOTDIR","status":"claimable","createdAt":1790197510831}
+PASS  AC2 成功成员不被失败成员拖住（总耗时 < 90s，未叠加两轮超时） — 27ms
+FAIL  AC2 两个成功成员确实活着（各自 health） — []
+PASS  AC3 并发超默认上限 5 显式失败（409 + 可读原因） — 409 {"code":"dispatch_rejected","message":"单次并发超上限（请求 6，上限 5）"}
+PASS  AC3 拒绝原因可读（点明并发上限，不是空错误） — 单次并发超上限（请求 6，上限 5）
+FAIL  前置：能取到批次第一个成员的 local-api 端口 — null
+rig 异常： TypeError: Failed to parse URL from http://127.0.0.1:null/v1/dispatch
+    at node:internal/deps/undici/undici:15157:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async dispatch (file:///Users/rolex/Documents/Codes/githubProject/MyProject/hive/scripts/hive-dispatch-e2e56.mjs:436:15)
+    at async main (file:///Users/rolex/Documents/Codes/githubProject/MyProject/hive/scripts/hive-dispatch-e2e56.mjs:675:19) {
+  [cause]: TypeError: Invalid URL
+      at new URL (node:internal/url:818:25)
+      at new Request (node:internal/deps/undici/undici:9927:25)
+      at fetch (node:internal/deps/undici/undici:10656:25)
+      at fetch (node:internal/deps/undici/undici:15155:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at dispatch (file:///Users/rolex/Documents/Codes/githubProject/MyProject/hive/scripts/hive-dispatch-e2e56.mjs:436:21)
+      at main (file:///Users/rolex/Documents/Codes/githubProject/MyProject/hive/scripts/hive-dispatch-e2e56.mjs:675:25)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5) {
+    code: 'ERR_INVALID_URL',
+    input: 'http://127.0.0.1:null/v1/dispatch'
+  }
+}
+  [b] [13230:0924/050512.497364:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [a] [13231:0924/050512.497363:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [b] [13230:0924/050512.501296:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [a] [13231:0924/050512.501308:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [a] [local-api] 收到优雅退出请求
+  [b] [local-api] 收到优雅退出请求

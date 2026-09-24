@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<!-- PROTOTYPE（throwaway）· wayfinder ticket #37 · 「茶话间 + agent」完整群聊外壳
+     问题：Slack / buzz 式完整应用外壳 —— 左侧 = 工作区 rail + 群聊列表（无人物头像），
+           群聊消息流里才出现头像。agent 成员怎么长？
+     三个 variant（?variant=A|B|C，底部浮动条 / ← → 键切换）：
+       A · 群列表内混合：群 + agent 同列，agent 行内嵌五档点 + 负担% + pending 计数
+       B · 独立「Agent 成员」段：群聊列表下独立分段，过程入口 = 「过程」按钮
+       C · 悬浮 Agent Dock：列表纯群，agent 收进底部 Dock + 弹出迷你派遣网络图
+     约束（map #20 decisions）：
+       - #36：机库 = per-member 过程明细；仪表盘 = 聚合概览；不同轴
+       - #17：五档色 idle #58a6ff / easy #3fb950 / busy #d29922 / over #f0883e / blow #f85149
+       - #34：跨机可见性未决 → 只演示本机视角（Mac = 演示主机）
+       - #29/#30：群内只发正式消息；@agent 需 pending 收集期
+     底图：teahouse 空状态截图（CleanShot 2026-09-22 at 16.58.51）
+     这是 throwaway：state 全在内存、数据是假的、启动 = 双击本文件。 -->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PROTOTYPE · 茶话间 + agent 完整群聊外壳（ticket #37）</title>
+<style>
+  :root{
+    /* —— teahouse 浅色系（自截图取色）—— */
+    --app-bg:#fafafa; --sidebar:#f3f3f3; --sidebar-line:#e5e5e5;
+    --fg:#1f2328; --fg2:#57606a; --fg3:#8c959f;
+    --accent:#2da44e; --accent-soft:#dafbe1;
+    /* —— 深色舞台（让窗口有幕布感）—— */
+    --stage:#20212b;
+    /* —— agent 五档（#17，独立于 teahouse 色板）—— */
+    --st-idle:#58a6ff; --st-easy:#3fb950; --st-busy:#d29922; --st-over:#f0883e; --st-blow:#f85149;
+    --st-offline:#6e7681;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:var(--stage); color:var(--fg); display:flex; flex-direction:column;
+       font:14px/1.55 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+
+  /* ============ 顶栏 ============ */
+  header.bar{flex:0 0 auto; padding:12px 18px; color:#e6edf3; display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; border-bottom:1px solid #35374a}
+  header.bar h1{font-size:15px;margin:0;font-weight:700}
+  header.bar .tag{font-size:11px;font-weight:700;letter-spacing:.06em;color:#04101f;background:#58a6ff;border-radius:4px;padding:1px 6px}
+  header.bar .sub{font-size:12px;color:#9aa4b2;max-width:980px}
+  header.bar .sub b{color:#c9d1d9}
+
+  /* ============ 应用窗口 ============ */
+  main{flex:1 1 auto; position:relative; overflow:hidden; padding:20px 24px 72px}
+  .app{
+    position:relative; height:100%; max-width:1240px; margin:0 auto;
+    background:var(--app-bg); border-radius:12px; overflow:hidden;
+    box-shadow:0 24px 80px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.06);
+    display:grid; grid-template-columns:272px 1fr;
+  }
+  .app > img.bg{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; opacity:.18; filter:saturate(.5); pointer-events:none; user-select:none}
+
+  /* ============ 左栏：工作区 + 群聊列表（无人物头像）============ */
+  .rail{position:relative; z-index:2; background:var(--sidebar); border-right:1px solid var(--sidebar-line); display:flex; flex-direction:column; min-height:0}
+  .workspace{display:flex; align-items:center; gap:10px; padding:12px; border-bottom:1px solid var(--sidebar-line)}
+  .workspace .logo{width:32px; height:32px; border-radius:8px; background:var(--accent); display:flex; align-items:center; justify-content:center; color:#fff; font-weight:800; font-size:15px}
+  .workspace .nm{font-weight:700; font-size:13.5px}
+  .workspace .arrows{margin-left:auto; color:var(--fg3); font-size:12px}
+  .rail .scroll{flex:1 1 auto; overflow-y:auto; min-height:0; padding:6px 8px 12px}
+
+  /* 分段标题 */
+  .sect{font-size:11px; font-weight:700; color:var(--fg3); letter-spacing:.05em; padding:12px 10px 5px; display:flex; justify-content:space-between; align-items:center}
+  .sect .count{font-weight:500}
+  .sect button.add{border:0; background:transparent; color:var(--fg3); cursor:pointer; font-size:14px; padding:0 2px}
+  .sect button.add:hover{color:var(--fg)}
+
+  /* 群聊条目 */
+  .group{display:flex; align-items:center; gap:9px; padding:7px 10px; border-radius:8px; cursor:pointer; color:var(--fg2)}
+  .group:hover{background:#e9e9e9}
+  .group.selected{background:var(--accent-soft); color:var(--fg)}
+  .group .hash{font-weight:700; color:var(--fg3); width:14px; text-align:center; flex:0 0 auto}
+  .group .nm{flex:1 1 auto; font-size:13.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .group .badge{font-size:10.5px; font-weight:700; background:var(--accent); color:#fff; border-radius:999px; padding:1px 7px; flex:0 0 auto}
+
+  /* agent 行（三 variant 共用骨架） */
+  .agent{display:flex; align-items:center; gap:9px; padding:7px 10px; border-radius:8px; cursor:pointer; position:relative}
+  .agent:hover{background:#e9e9e9}
+  .agent.selected{background:var(--accent-soft)}
+  .agent .bot{width:26px; height:26px; border-radius:7px; flex:0 0 auto; position:relative; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:800; font-size:12px}
+  .agent .bot .dot{position:absolute; right:-2px; bottom:-2px; width:9px; height:9px; border-radius:50%; border:2px solid var(--sidebar); background:var(--st-offline)}
+  .agent .bot .dot.idle{background:var(--st-idle)} .agent .bot .dot.easy{background:var(--st-easy)} .agent .bot .dot.busy{background:var(--st-busy)}
+  .agent .bot .dot.over{background:var(--st-over)} .agent .bot .dot.blow{background:var(--st-blow)} .agent .bot .dot.off{background:var(--st-offline)}
+  .agent .meta{min-width:0; flex:1 1 auto}
+  .agent .meta .nm{font-size:13px; font-weight:600; color:var(--fg); display:flex; gap:5px; align-items:center; white-space:nowrap}
+  .agent .meta .rl{font-size:11px; color:var(--fg2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .agent .meta .rl .pct{color:var(--fg3)}
+  .badge-ai{flex:0 0 auto; font-size:9.5px; font-weight:800; letter-spacing:.04em; color:#04101f; background:var(--st-idle); border-radius:4px; padding:1px 4px}
+  .pend{font-size:10px; font-weight:700; background:var(--st-busy); color:#fff; border-radius:999px; padding:1px 6px; flex:0 0 auto}
+  .agent button.mini{font:inherit; font-size:10.5px; border:1px solid var(--sidebar-line); background:#fff; border-radius:6px; padding:1px 6px; cursor:pointer; color:var(--fg2); flex:0 0 auto}
+  .agent button.mini:hover{border-color:var(--st-idle); color:var(--st-idle)}
+
+  /* Variant A chips */
+  .chips{display:flex; gap:5px; padding:2px 10px 4px}
+  .chips button{font:inherit; font-size:11.5px; border:1px solid var(--sidebar-line); background:#fff; color:var(--fg2); border-radius:999px; padding:2px 9px; cursor:pointer}
+  .chips button[aria-pressed="true"]{background:var(--fg); color:#fff; border-color:var(--fg)}
+
+  /* ============ 右区：群聊消息流（头像只在这里出现）============ */
+  .chat{position:relative; z-index:2; display:flex; flex-direction:column; min-height:0; background:#fff}
+  .chat-head{flex:0 0 auto; display:flex; align-items:center; gap:10px; padding:11px 16px; border-bottom:1px solid var(--sidebar-line)}
+  .chat-head .hash{font-size:16px; color:var(--fg3)}
+  .chat-head .nm{font-weight:700; font-size:14px}
+  .chat-head .topic{font-size:12px; color:var(--fg3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .chat-head .members{margin-left:auto; display:flex; align-items:center; gap:6px; color:var(--fg3); font-size:12px}
+  /* 消息流里的堆叠头像 */
+  .chat-head .faces{display:flex}
+  .chat-head .faces .fa{width:24px; height:24px; border-radius:50%; border:2px solid #fff; margin-left:-8px; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; font-size:11px; position:relative}
+  .chat-head .faces .fa:first-child{margin-left:0}
+  .chat-head .faces .fa .dot{position:absolute; right:-1px; bottom:-1px; width:8px; height:8px; border-radius:50%; border:1.5px solid #fff; background:var(--st-offline)}
+  .chat-head .faces .fa .dot.idle{background:var(--st-idle)} .chat-head .faces .fa .dot.easy{background:var(--st-easy)} .chat-head .faces .fa .dot.busy{background:var(--st-busy)}
+  .chat-head .faces .fa .dot.over{background:var(--st-over)} .chat-head .faces .fa .dot.blow{background:var(--st-blow)} .chat-head .faces .fa .dot.off{background:var(--st-offline)}
+
+  .msgs{flex:1 1 auto; overflow-y:auto; min-height:0; padding:14px 16px}
+  .msg{display:flex; gap:10px; margin-bottom:14px}
+  .msg .fa{width:34px; height:34px; border-radius:8px; flex:0 0 auto; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; font-size:14px; position:relative}
+  .msg .fa .dot{position:absolute; right:-2px; bottom:-2px; width:10px; height:10px; border-radius:50%; border:2px solid #fff; background:var(--st-offline)}
+  .msg .fa .dot.idle{background:var(--st-idle)} .msg .fa .dot.easy{background:var(--st-easy)} .msg .fa .dot.busy{background:var(--st-busy)}
+  .msg .fa .dot.over{background:var(--st-over)} .msg .fa .dot.blow{background:var(--st-blow)} .msg .fa .dot.off{background:var(--st-offline)}
+  .msg .body{min-width:0}
+  .msg .who{display:flex; gap:7px; align-items:baseline}
+  .msg .who .nm{font-weight:700; font-size:13.5px}
+  .msg .who .tm{font-size:11px; color:var(--fg3)}
+  .msg .who .badge-ai{font-size:9px; padding:0 4px}
+  .msg .txt{font-size:13.5px; color:var(--fg); margin-top:2px; white-space:pre-wrap}
+  .msg .txt code{background:var(--sidebar); border:1px solid var(--sidebar-line); border-radius:5px; padding:0 4px; font-size:12px}
+
+  /* 输入框 */
+  .composer{flex:0 0 auto; padding:10px 16px 14px}
+  .composer .box{display:flex; gap:8px; align-items:center; border:1px solid var(--sidebar-line); border-radius:10px; padding:9px 12px; background:var(--app-bg)}
+  .composer .box input{flex:1 1 auto; border:0; background:transparent; font:inherit; font-size:13.5px; color:var(--fg); outline:none}
+  .composer .box .send{background:var(--accent); color:#fff; border:0; border-radius:8px; padding:5px 12px; font:inherit; font-size:12.5px; font-weight:700; cursor:pointer}
+  .composer .hint{font-size:11px; color:var(--fg3); margin-top:5px}
+
+  /* ============ Variant C：悬浮 Agent Dock ============ */
+  .dock{position:absolute; z-index:5; left:50%; bottom:18px; transform:translateX(-50%); display:flex; align-items:center; gap:8px;
+        background:rgba(22,23,32,.94); border:1px solid #3a3d52; border-radius:999px; padding:8px 12px;
+        box-shadow:0 12px 32px rgba(0,0,0,.5); backdrop-filter:blur(8px)}
+  .dock .lbl{font-size:11px; color:#9aa4b2; margin-right:2px; white-space:nowrap}
+  .dock .slot{width:36px; height:36px; border-radius:50%; position:relative; cursor:pointer; flex:0 0 auto; display:flex; align-items:center; justify-content:center; font-weight:700; color:#fff; font-size:12px; border:2px solid transparent}
+  .dock .slot .dot{position:absolute; right:-1px; bottom:-1px; width:9px; height:9px; border-radius:50%; border:2px solid #161720; background:var(--st-offline)}
+  .dock .slot.idle .dot{background:var(--st-idle)} .dock .slot.easy .dot{background:var(--st-easy)} .dock .slot.busy .dot{background:var(--st-busy)}
+  .dock .slot.over .dot{background:var(--st-over)} .dock .slot.blow .dot{background:var(--st-blow)} .dock .slot.off .dot{background:var(--st-offline)}
+  .dock .slot.pending{border-color:var(--st-busy)}
+  .dock button.open{font:inherit; font-size:12px; font-weight:700; color:#04101f; background:#58a6ff; border:0; border-radius:999px; padding:6px 12px; cursor:pointer; white-space:nowrap}
+  .dock-pop{position:absolute; z-index:6; left:50%; bottom:76px; transform:translateX(-50%); width:320px; background:#161720; border:1px solid #3a3d52; border-radius:12px; padding:10px 12px; color:#e6edf3; box-shadow:0 16px 40px rgba(0,0,0,.6)}
+  .dock-pop h4{margin:0 0 6px; font-size:12px; color:#9aa4b2; font-weight:600}
+  .dock-pop svg{display:block; width:100%; height:auto}
+  .dock-pop .foot{font-size:11px; color:#9aa4b2; margin-top:6px; display:flex; justify-content:space-between}
+
+  /* ============ 右上角 state 面板 ============ */
+  .state{position:absolute; z-index:7; right:16px; top:16px; width:300px; max-height:calc(100% - 100px); overflow:auto;
+         background:rgba(13,17,23,.94); border:1px solid #30363d; border-radius:12px; color:#c9d1d9; padding:12px 14px;
+         font-size:12px; line-height:1.6; box-shadow:0 12px 32px rgba(0,0,0,.5)}
+  .state h3{margin:0 0 6px; font-size:12px; color:#8b949e; letter-spacing:.05em; text-transform:uppercase}
+  .state pre{margin:6px 0 0; background:#0b0f14; border:1px solid #21262d; border-radius:8px; padding:8px; font:10.5px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace; white-space:pre-wrap; word-break:break-word}
+  .state .row{display:flex; justify-content:space-between; gap:8px; padding:2px 0}
+  .state .row b{color:#e6edf3; font-weight:600; text-align:right}
+
+  /* ============ 底部 switcher ============ */
+  .switcher{position:fixed; left:50%; bottom:18px; transform:translateX(-50%); z-index:30; display:flex; align-items:center; gap:10px;
+            background:#0b1220; border:1px solid var(--st-idle); border-radius:999px; padding:7px 12px; box-shadow:0 10px 30px rgba(0,0,0,.55)}
+  .switcher button{background:transparent; color:var(--st-idle); font-size:16px; padding:2px 10px; border-radius:999px; border:0; cursor:pointer}
+  .switcher button:hover{background:#12233d}
+  .switcher #swLabel{font-size:12.5px; font-weight:600; min-width:310px; text-align:center; color:#e6edf3}
+  .switcher .key{font-size:11px; color:#6e7681}
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <h1><span class="tag">PROTOTYPE</span>茶话间 + agent · 完整群聊外壳 · wayfinder ticket #37</h1>
+  <div class="sub">
+    问题：<b>Slack / buzz 式完整应用外壳 —— 左侧 = 工作区 rail + 群聊列表（无人物头像），群聊消息流里才出现头像。agent 成员怎么长？</b>
+    三个 variant（底部条 / <b>← →</b> 键切换）。右上角面板实时显示内存 state。
+    约束：#36 词表 / #17 五档色 / #34 本机视角 / #29 正式消息 / #30 pending。
+  </div>
+</header>
+
+<main>
+  <div class="app" id="app">
+    <img class="bg" src="teahouse-screenshot.png" alt="teahouse 空状态截图">
+
+    <!-- 左栏 -->
+    <aside class="rail" id="rail"></aside>
+
+    <!-- 右区：群聊 -->
+    <section class="chat">
+      <div class="chat-head" id="chatHead"></div>
+      <div class="msgs" id="msgs"></div>
+      <div class="composer">
+        <div class="box">
+          <input id="composerInput" placeholder="发给 #体素城市（@agent 需 pending 确认，#30）">
+          <button class="send" id="sendBtn">发送</button>
+        </div>
+        <div class="hint">Enter 发送 · 正式消息进群流（#29）· 过程进机库（点 agent 行「过程」）</div>
+      </div>
+    </section>
+
+    <!-- Variant C Dock -->
+    <div id="dockWrap"></div>
+
+    <!-- state 面板 -->
+    <div class="state" id="statePanel"></div>
+  </div>
+</main>
+
+<nav class="switcher" aria-label="prototype variant switcher">
+  <button id="swPrev" aria-label="previous variant">←</button>
+  <span id="swLabel">A</span>
+  <button id="swNext" aria-label="next variant">→</button>
+  <span class="key">?variant=A|B·C</span>
+</nav>
+
+<script>
+/* =====================================================================
+ * 假数据（内存态）
+ * ===================================================================== */
+const STATUS = ['idle','easy','busy','over','blow','off'];
+const SL = {idle:'空闲', easy:'轻松', busy:'有点忙', over:'过载', blow:'快炸了', off:'离线'};
+const SC = {idle:'var(--st-idle)', easy:'var(--st-easy)', busy:'var(--st-busy)', over:'var(--st-over)', blow:'var(--st-blow)', off:'var(--st-offline)'};
+
+const GROUPS = [
+  {id:'g-city',  nm:'体素城市',   topic:'涌现性 A/B 主任务', unread:3},
+  {id:'g-guard', nm:'守卫值班室', topic:'目标守卫判定留痕',   unread:0},
+  {id:'g-hand',  nm:'交接中转',   topic:'handoff 文档引用',   unread:0},
+];
+
+const HUMANS = [
+  {id:'h-rolex', nm:'rolex',     hue:'#8250df', role:'主人'},
+  {id:'h-art',   nm:'美术-阿棠', hue:'#cf222e', role:'像素美术'},
+];
+
+const AGENTS = [
+  {id:'a-code',  nm:'小码',    role:'体素城市·主程',  hue:'#0969da', status:'busy', pct:14, machine:'本机', depth:1, pending:false},
+  {id:'a-audit', nm:'审计官',  role:'涌现性 A/B 裁判', hue:'#1a7f37', status:'easy', pct:6,  machine:'本机', depth:2, pending:false},
+  {id:'a-build', nm:'泥瓦匠',  role:'斗拱专项',        hue:'#bf8700', status:'over', pct:27, machine:'本机', depth:3, pending:false},
+  {id:'a-win1',  nm:'Win-探针', role:'Windows 冷启动', hue:'#57606a', status:'off',  pct:null, machine:'Win-A', depth:1, pending:true},
+];
+
+const MSGS = [
+  {who:'h-rolex',  txt:'@小码 城市主殿的中轴线对一下，图纸上偏了 2 格', t:'09:12'},
+  {who:'a-code',   txt:'收到。已对齐中轴，斗拱层在第三跳。顺手把光影角度调成 38°，更符合黄昏氛围。', t:'09:14'},
+  {who:'h-art',    txt:'屋顶形制我补了 2 种：歇山顶 + 攒尖顶，加上之前的庑殿顶正好 3 种', t:'09:20'},
+  {who:'a-audit',  txt:'对照 emergence-ab.md 判据：当前 ①vs③ 在「交付完整度」轴领先，其余 5 轴待评。', t:'09:26'},
+  {who:'a-build',  txt:'斗拱专项进度 60%，还差东南角楼的昂嘴。', t:'09:31'},
+];
+
+const state = {
+  variant: new URLSearchParams(location.search).get('variant') || 'A',
+  group: 'g-city',
+  filter: 'all',            // Variant A chips
+  selected: null,           // 选中的 agent id（点行）
+  showMiniMap: false,       // Variant C
+  msgs: [...MSGS],
+  tick: 0,
+};
+
+/* =====================================================================
+ * 渲染
+ * ===================================================================== */
+const rail = document.getElementById('rail');
+const dockWrap = document.getElementById('dockWrap');
+
+function dot(st){ return `<span class="dot ${st==='off'?'off':st}"></span>`; }
+
+function groupRow(g){
+  return `<div class="group ${state.group===g.id?'selected':''}" data-group="${g.id}">
+    <span class="hash">#</span><span class="nm">${g.nm}</span>
+    ${g.unread?`<span class="badge">${g.unread}</span>`:''}
+  </div>`;
+}
+
+function agentRow(a, {processBtn=false, badge=true}={}){
+  return `<div class="agent ${state.selected===a.id?'selected':''}" data-agent="${a.id}">
+    <div class="bot" style="background:${a.hue}">${a.nm[0]}${dot(a.status)}</div>
+    <div class="meta">
+      <div class="nm">${a.nm}${badge?`<span class="badge-ai">AI</span>`:''}</div>
+      <div class="rl">${a.role} · ${SL[a.status]}<span class="pct">${a.pct!=null?` · ${a.pct}%`:''} · ${a.machine} · 深度${a.depth}</span></div>
+    </div>
+    ${a.pending?`<span class="pend" title="pending 收集期（#30）">pending</span>`:''}
+    ${processBtn?`<button class="mini" data-process="${a.id}">过程</button>`:''}
+  </div>`;
+}
+
+function renderRail(){
+  const v = state.variant;
+  if(v==='A'){
+    const chips = [['all','全部'],['group','群'],['agent','Agent']];
+    const items = [
+      ...GROUPS.map(g=>({t:'group', g})),
+      ...AGENTS.map(a=>({t:'agent', a})),
+    ].filter(x => state.filter==='all' || x.t===state.filter);
+    rail.innerHTML = `
+      ${workspaceHtml()}
+      <div class="chips">${chips.map(([k,l])=>`<button data-chip="${k}" aria-pressed="${state.filter===k}">${l}</button>`).join('')}</div>
+      <div class="scroll">
+        <div class="sect"><span>通讯录</span><span class="count">${items.length}</span></div>
+        ${items.map(x => x.t==='group' ? groupRow(x.g) : agentRow(x.a, {badge:true})).join('')}
+      </div>`;
+  } else if(v==='B'){
+    rail.innerHTML = `
+      ${workspaceHtml()}
+      <div class="scroll">
+        <div class="sect"><span>群聊</span><button class="add" title="新建群">＋</button></div>
+        ${GROUPS.map(groupRow).join('')}
+        <div class="sect"><span>Agent 成员</span><span class="count">${AGENTS.length}</span></div>
+        ${AGENTS.map(a=>agentRow(a,{processBtn:true})).join('')}
+      </div>`;
+  } else {
+    rail.innerHTML = `
+      ${workspaceHtml()}
+      <div class="scroll">
+        <div class="sect"><span>群聊</span><button class="add" title="新建群">＋</button></div>
+        ${GROUPS.map(groupRow).join('')}
+        <div class="sect"><span>Agent 在底部 Dock →</span></div>
+      </div>`;
+  }
+}
+
+function workspaceHtml(){
+  return `<div class="workspace">
+    <div class="logo">茶</div>
+    <div><div class="nm">茶话间</div></div>
+    <span class="arrows">⌄</span>
+  </div>`;
+}
+
+function renderDock(){
+  if(state.variant!=='C'){ dockWrap.innerHTML=''; return; }
+  const slots = AGENTS.map(a=>`
+    <div class="slot ${a.status} ${a.pending?'pending':''}" style="background:${a.hue}" data-agent="${a.id}" title="${a.nm} · ${SL[a.status]}">
+      ${a.nm[0]}<span class="dot"></span>
+    </div>`).join('');
+  dockWrap.innerHTML = `
+    <div class="dock">
+      <span class="lbl">Agent · ${AGENTS.filter(a=>a.status!=='off').length} 在线</span>
+      ${slots}
+      <button class="open" id="openMiniMap">${state.showMiniMap?'收起网络图':'派遣网络图'}</button>
+    </div>
+    ${state.showMiniMap ? miniMapHtml() : ''}`;
+}
+
+function miniMapHtml(){
+  const nodes = AGENTS.map((a,i)=>{
+    const x = 40 + (i%2)*120, y = 30 + Math.floor(i/2)*46;
+    return `<g style="cursor:pointer" data-agent="${a.id}">
+      <rect x="${x-14}" y="${y-14}" width="28" height="28" rx="6" fill="${a.hue}" opacity="${a.status==='off'?0.35:1}"/>
+      <circle cx="${x+11}" cy="${y+11}" r="4" fill="${SC[a.status]}"/>
+      <text x="${x}" y="${y+4}" text-anchor="middle" font-size="11" fill="#fff" font-weight="700">${a.nm[0]}</text>
+      <text x="${x}" y="${y+28}" text-anchor="middle" font-size="9" fill="#8b949e">${a.nm}</text>
+    </g>`;
+  }).join('');
+  const edges = AGENTS.slice(1).map((a,i)=>{
+    const x1 = 40, y1 = 30;
+    const x2 = 40 + ((i+1)%2)*120, y2 = 30 + Math.floor((i+1)/2)*46;
+    return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#3a4256" stroke-width="1.4" stroke-dasharray="${a.status==='off'?'3 3':'none'}"/>`;
+  }).join('');
+  return `<div class="dock-pop">
+    <h4>派遣网络图（迷你 · 完整规格 #17）</h4>
+    <svg viewBox="0 0 240 140">${edges}${nodes}</svg>
+    <div class="foot"><span>本机视角（#34）</span><span>峰值 31（#31）</span></div>
+  </div>`;
+}
+
+function renderChat(){
+  const g = GROUPS.find(x=>x.id===state.group);
+  document.getElementById('chatHead').innerHTML = `
+    <span class="hash">#</span><span class="nm">${g.nm}</span>
+    <span class="topic">${g.topic}</span>
+    <div class="members">
+      <div class="faces">
+        ${[...HUMANS.map(h=>({...h, st:'off'})), ...AGENTS.map(a=>({...a, st:a.status}))].map(m=>
+          `<div class="fa" style="background:${m.hue}" title="${m.nm} · ${SL[m.st]}">${m.nm[0]}<span class="dot ${m.st==='off'?'off':m.st}"></span></div>`
+        ).join('')}
+      </div>
+      <span>${HUMANS.length + AGENTS.length} 名成员</span>
+    </div>`;
+
+  const whoMeta = id => {
+    const h = HUMANS.find(x=>x.id===id);
+    if(h) return {...h, st:'off', ai:false};
+    const a = AGENTS.find(x=>x.id===id);
+    return {...a, st:a.status, ai:true};
+  };
+  document.getElementById('msgs').innerHTML = state.msgs.map(m=>{
+    const w = whoMeta(m.who);
+    return `<div class="msg">
+      <div class="fa" style="background:${w.hue}; border-radius:${w.ai?'8px':'50%'}">${w.nm[0]}${dot(w.st)}</div>
+      <div class="body">
+        <div class="who"><span class="nm">${w.nm}</span>${w.ai?`<span class="badge-ai">AI</span>`:''}<span class="tm">${m.t}</span></div>
+        <div class="txt">${m.txt.replace(/`([^`]+)`/g,'<code>$1</code>')}</div>
+      </div>
+    </div>`;
+  }).join('');
+  const box = document.getElementById('msgs'); box.scrollTop = box.scrollHeight;
+}
+
+function renderState(){
+  const lines = [
+    ['variant', state.variant], ['group', state.group], ['filter', state.filter],
+    ['selected', state.selected ?? '—'], ['showMiniMap', state.showMiniMap], ['msgs', state.msgs.length], ['tick', state.tick],
+  ];
+  document.getElementById('statePanel').innerHTML = `
+    <h3>state（内存 · 每次操作后重渲）</h3>
+    ${lines.map(([k,v])=>`<div class="row"><span>${k}</span><b>${v}</b></div>`).join('')}
+    <pre>${JSON.stringify({groups:GROUPS.map(g=>({id:g.id,unread:g.unread})), agents:AGENTS.map(a=>({id:a.id,status:a.status,pct:a.pct,pending:a.pending}))}, null, 2)}</pre>`;
+}
+
+function renderAll(){
+  renderRail(); renderDock(); renderChat(); renderState();
+  document.getElementById('swLabel').textContent =
+    `${state.variant} · ${{A:'群列表内混合（chips 过滤）',B:'两段式（Agent 成员分组）',C:'悬浮 Agent Dock + 迷你网络图'}}[${state.variant}]`;
+}
+
+/* =====================================================================
+ * 交互
+ * ===================================================================== */
+document.addEventListener('click', (e)=>{
+  const chip = e.target.closest('[data-chip]');
+  if(chip){ state.filter = chip.dataset.chip; renderAll(); return; }
+
+  const g = e.target.closest('[data-group]');
+  if(g){ state.group = g.dataset.group; GROUPS.find(x=>x.id===state.group).unread = 0; renderAll(); return; }
+
+  const proc = e.target.closest('[data-process]');
+  if(proc){
+    state.selected = proc.dataset.process;
+    const a = AGENTS.find(x=>x.id===state.selected);
+    alert(`打开机库（Hangar）→ 定位到「${a.nm}」\n（#33 定案：应用内新窗口 · 形态 C 卡片网格 · 过程流）`);
+    renderAll(); return;
+  }
+
+  const ag = e.target.closest('[data-agent]');
+  if(ag){ state.selected = ag.dataset.agent; renderAll(); return; }
+
+  if(e.target.closest('#openMiniMap')){ state.showMiniMap = !state.showMiniMap; renderAll(); return; }
+  if(e.target.closest('#sendBtn')){ doSend(); return; }
+});
+document.getElementById('composerInput').addEventListener('keydown', e=>{
+  if(e.key==='Enter'){ doSend(); }
+});
+function doSend(){
+  const inp = document.getElementById('composerInput');
+  const t = inp.value.trim(); if(!t) return;
+  state.msgs.push({who:'h-rolex', txt:t, t:new Date().toTimeString().slice(0,5)});
+  inp.value=''; renderAll();
+}
+
+/* variant switcher */
+const ORDER = ['A','B','C'];
+function setVariant(v){
+  state.variant = ORDER.includes(v) ? v : 'A';
+  const url = new URL(location); url.searchParams.set('variant', state.variant);
+  history.replaceState(null,'',url); renderAll();
+}
+document.getElementById('swPrev').onclick = ()=> setVariant(ORDER[(ORDER.indexOf(state.variant)+ORDER.length-1)%ORDER.length]);
+document.getElementById('swNext').onclick = ()=> setVariant(ORDER[(ORDER.indexOf(state.variant)+1)%ORDER.length]);
+document.addEventListener('keydown', e=>{
+  if(/^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName) || document.activeElement?.isContentEditable) return;
+  if(e.key==='ArrowLeft') document.getElementById('swPrev').click();
+  if(e.key==='ArrowRight') document.getElementById('swNext').click();
+});
+
+/* 演示：每 4s 随机漂移一档 + 偶发 agent 回一句正式消息 */
+const AGENT_REPLIES = ['收到，正在处理。','这一步需要 2 分钟，稍等。','已完成，结果已写进 handoff。','遇到歧义，按 emergence-ab.md 第 3 条执行。'];
+setInterval(()=>{
+  state.tick++;
+  const live = AGENTS.filter(a=>a.status!=='off');
+  if(live.length){
+    const a = live[Math.floor(Math.random()*live.length)];
+    const i = STATUS.indexOf(a.status);
+    a.status = STATUS[Math.min(STATUS.length-2, Math.max(0, i + (Math.random()<.5?-1:1)))];
+    a.pct = {idle:0, easy:6, busy:14, over:27, blow:43}[a.status] ?? 0;
+    if(Math.random()<.3){
+      state.msgs.push({who:a.id, txt:AGENT_REPLIES[Math.floor(Math.random()*AGENT_REPLIES.length)], t:new Date().toTimeString().slice(0,5)});
+    }
+  }
+  renderAll();
+}, 4000);
+
+renderAll();
+</script>
+</body>
+</html>

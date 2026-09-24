@@ -1,0 +1,7 @@
+#!/bin/sh
+# Hive pre-push 守卫：白名单外的 vendored teahouse 修改 fail-closed。
+# 启用（repo-local）：git config core.hooksPath .githooks
+set -e
+repo_root=$(git rev-parse --show-toplevel)
+cd "$repo_root"
+exec node scripts/check-vendor-patches.mjs

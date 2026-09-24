@@ -1,0 +1,136 @@
+rig root: /var/folders/d9/_0gbv97x6332wsrqhr4fcyj80000gn/T/hive-pending-e2e-j2mctj
+  [a] [hive] 成员登记表 /var/folders/d9/_0gbv97x6332wsrqhr4fcyj80000gn/T/hive-pending-e2e-j2mctj/a/hive/members.json：2 条
+  [a] [hive] pending 确认闸门已启用（PANTRY_PENDING=1）
+  [b] [hive] PANTRY_MEMBER_REGISTRY 读取失败： Error: ENOENT: no such file or directory, open '/var/folders/d9/_0gbv97x6332wsrqhr4fcyj80000gn/T/hive-pending-e2e-j2mctj/b/hive/members.json'
+  [b] [hive] pending 确认闸门已启用（PANTRY_PENDING=1）
+  [b] [headless] up nodeId=hive-pending-b udp=19178 tcp=19179 api=19190 agent=on
+PASS  两节点身份互异
+PASS  A 启用 pending 闸门
+PASS  A 初始 pending 为空 — {"pendings":[],"goals":[],"confirmGrants":[],"selfId":"hive-pending-a"}
+PASS  建群成功 — ec37d17e-6115-490a-880d-a9eeaf8cb0ff
+  [b] [pending] route cbb3b34e-69f4-445d-9cfe-1c62b00d65a9: self=hive-pending-b owner=none running=false → collect
+  [b] [pending] hive-pending-b entries=0 waiting=true
+  [b] [pending] hive-pending-b entries=1 waiting=true
+  [b] [pending] route 3b8c042e-da93-4958-9287-b5db3a879767: self=hive-pending-b owner=none running=false → collect
+  [b] [pending] hive-pending-b entries=2 waiting=true
+  [a] 2026-09-24 05:38:21.325 Electron[69225:201078962] error messaging the mach port for IMKCFRunLoopWakeUpReliable
+PASS  AC1 空闲 @ 进 pending 收集期（2 条聚合） — {"memberId":"hive-pending-b","groupId":"ec37d17e-6115-490a-880d-a9eeaf8cb0ff","entries":[{"senderId":"hive-pending-a","text":"请写一个爬虫","ts":1790199499643},{"senderId":"hive-pending-a","text":"补充：用 Python","ts":1790199499648}],"createdAt":1790199501312}
+PASS  AC1 收集期内不触发 turn（无正式回复） — 正式回复 0 条
+FAIL  AC4 SSE pending.updated 药丸事件（契约表冻结 type） — 未收到
+PASS  AC2 初始无放权记录（确认键默认仅主人）
+  [b] [69230:0924/053829.281903:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [b] [69230:0924/053829.283803:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [a] [69229:0924/053829.305419:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [a] [69229:0924/053829.306375:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [b] [69230:0924/053830.192894:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [b] [69230:0924/053830.193477:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [a] [69229:0924/053830.226427:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [a] [69229:0924/053830.227085:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [b] [69230:0924/053831.581451:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [b] [69230:0924/053831.614227:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [a] [69229:0924/053831.611923:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [a] [69229:0924/053831.745059:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [b] [69230:0924/053833.513070:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [a] [69229:0924/053833.630606:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [b] [69230:0924/053833.646508:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [a] [69229:0924/053833.703342:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [b] [69230:0924/053834.288730:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [b] [69230:0924/053834.289441:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [a] [69229:0924/053834.311111:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [a] [69229:0924/053834.311425:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [b] [69230:0924/053835.199502:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [b] [69230:0924/053835.200997:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [a] [69229:0924/053835.233000:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [a] [69229:0924/053835.233531:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [a] [69229:0924/053836.703746:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [b] [69230:0924/053836.706176:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [b] [69230:0924/053836.706754:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [b] [69230:0924/053836.709717:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [a] [69229:0924/053836.710717:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [b] [69230:0924/053836.713052:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [a] [69229:0924/053836.748999:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [a] [69229:0924/053836.806767:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+FAIL  AC4 GUI 可读 pending 状态（药丸数据源） — []
+FAIL  AC3 主人确认成功 — {"ok":false,"code":"unknown_group","reason":"群不存在或本机不认识该群"}
+  [b] [69230:0924/053838.521389:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [a] [69229:0924/053838.637731:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [b] [69230:0924/053838.652809:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [a] [69229:0924/053838.707937:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [b] [69230:0924/053840.898129:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [a] [69229:0924/053841.040286:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [b] [69230:0924/053841.120436:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [a] [69229:0924/053841.360970:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [b] [69230:0924/053841.714825:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [a] [69229:0924/053841.715370:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [b] [69230:0924/053841.716934:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [a] [69229:0924/053841.811608:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+FAIL  AC3 会话目标冻结（带 frozenBy） — null
+  [b] [69230:0924/053845.903897:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [a] [69229:0924/053846.049638:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [b] [69230:0924/053846.124798:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [a] [69229:0924/053846.367660:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [b] [69230:0924/053847.297309:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [a] [69229:0924/053847.732097:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [a] [69229:0924/053847.993589:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [b] [69230:0924/053848.358049:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [b] [69230:0924/053852.301699:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [a] [69229:0924/053852.739228:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [a] [69229:0924/053852.999416:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+FAIL  AC3 确认后 pending 清空 — pendings=1
+  [b] [69230:0924/053853.363175:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [b] [69230:0924/053857.620687:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [b] [69230:0924/053857.933580:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [a] [69229:0924/053858.005379:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [a] [69229:0924/053858.466811:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [b] [69230:0924/053902.627554:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [b] [69230:0924/053902.940924:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [a] [69229:0924/053903.010668:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [a] [69229:0924/053903.475573:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [a] [69229:0924/053912.646912:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [b] [69230:0924/053913.035782:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+FAIL  AC3 确认后恰好收到正式回复（聚合 prompt → 一次 turn） — 0 条
+PASS  AC3 恰好一次 turn（无重复 prompt） — 0 条正式消息（1 条 turn 产出）
+  [b] [pending] route a3c6ae96-bc78-4aef-8e3e-cae0be734b0e: self=hive-pending-b owner=none running=false → collect
+  [b] [pending] hive-pending-b entries=3 waiting=true
+  [b] [69230:0924/053914.023140:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [a] [69229:0924/053914.154848:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [a] [69229:0924/053917.652918:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [b] [69230:0924/053918.040307:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [b] [69230:0924/053919.029482:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [a] [69229:0924/053919.160770:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+FAIL  AC5 执行期 steering 不进 pending — pendings=1
+  [a] [69229:0924/053933.546623:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [b] [69230:0924/053936.060609:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [a] [69229:0924/053938.555821:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [a] [69229:0924/053939.221420:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [b] [69230:0924/053939.360350:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [b] [69230:0924/053941.065646:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+FAIL  AC5 执行期 steering 直通触发 turn（无二次确认） — 0 条正式消息
+  [b2] [hive] PANTRY_MEMBER_REGISTRY 读取失败： Error: ENOENT: no such file or directory, open '/var/folders/d9/_0gbv97x6332wsrqhr4fcyj80000gn/T/hive-pending-e2e-j2mctj/b/hive/members.json'
+  [b2] [hive] pending 确认闸门已启用（PANTRY_PENDING=1）
+  [b2] [pending] hive-pending-b entries=0 waiting=false
+  [b2] [headless] up nodeId=28eb2241-92e7-4f98-a609-96acaed9c69f udp=19178 tcp=19179 api=19190 agent=off
+  [a] [69229:0924/053944.225686:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [b2] [71256:0924/053953.411292:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [b2] [71256:0924/053953.412857:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [b2] [71256:0924/053954.300618:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [b2] [71256:0924/053954.412005:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [b2] [71256:0924/053955.704135:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [b2] [71256:0924/053955.825211:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [b2] [71256:0924/053957.812050:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [b2] [71256:0924/053957.991350:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [b2] [71256:0924/053958.417554:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [b2] [71256:0924/053958.417921:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+FAIL  AC6 重启后会话目标恢复（frozen + 原文） — null
+PASS  AC6 持久化文件含 schemaVersion 与 goals
+  [b2] [71256:0924/053959.312848:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [b2] [71256:0924/053959.417267:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [b2] [71256:0924/054000.591095:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [b2] [71256:0924/054000.710250:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [b2] [71256:0924/054000.831143:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [b2] [71256:0924/054000.922005:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+PASS  a 退出后无残留进程
+PASS  b 退出后无残留进程
+PASS  b2 退出后无残留进程
+
+PENDING E2E FAILED — 9 项（21 项断言）

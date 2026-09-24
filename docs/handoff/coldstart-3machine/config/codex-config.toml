@@ -1,0 +1,11 @@
+model_catalog_json = "ai-toolbox-codex-model-catalog.json"
+model = "deepseek-v4.1-flash"
+model_provider = "custom"
+model_reasoning_effort = "high"
+disable_response_storage = true
+
+[model_providers.custom]
+name = "custom"
+wire_api = "responses"
+requires_openai_auth = true
+base_url = "http://__MAC_IP__:2317/v1"

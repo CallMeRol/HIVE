@@ -1,0 +1,190 @@
+{
+  "name": "pantry",
+  "productName": "Hive",
+  "version": "0.60.2",
+  "description": "Hive —— 纯内网、基于 IP 的局域网即时通讯与文件传输工具（vendored teahouse 底座）",
+  "license": "GPL-3.0-only",
+  "private": true,
+  "main": "./out/main/index.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@agentclientprotocol/sdk": "1.5.0",
+    "better-sqlite3": "9.6.0",
+    "dompurify": "3.4.15",
+    "markdown-it": "15.0.2",
+    "zod": "3.25.76"
+  },
+  "scripts": {
+    "postinstall": "node node_modules/@electron/rebuild/lib/cli.js -o better-sqlite3",
+    "rebuild:electron": "node node_modules/@electron/rebuild/lib/cli.js -f -o better-sqlite3",
+    "dev": "node scripts/prepare-ocr-assets.mjs && electron-vite dev",
+    "dev:2": "sh scripts/dev-clients-2.sh",
+    "dev:3": "sh scripts/dev-clients-3.sh",
+    "dev:client1": "sh scripts/dev-client-1.sh",
+    "dev:client2": "sh scripts/dev-client-2.sh",
+    "dev:client3": "sh scripts/dev-client-3.sh",
+    "build": "node scripts/prepare-ocr-assets.mjs && electron-vite build && node scripts/copy-acp-runtime.mjs && npm run check:renderer-bundles",
+    "start": "electron-vite preview",
+    "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
+    "typecheck:web": "vue-tsc --noEmit -p tsconfig.web.json --composite false",
+    "typecheck": "npm run typecheck:node && npm run typecheck:web",
+    "test": "node scripts/check-doc-locales.mjs && vitest run",
+    "test:screen": "node scripts/remote-view-selftest.cjs",
+    "test:diagnostics": "node scripts/diagnostics-selftest.cjs",
+    "check:docs": "node scripts/check-doc-locales.mjs",
+    "check:version": "node scripts/check-version-consistency.mjs",
+    "check:renderer-bundles": "node scripts/check-renderer-bundles.mjs",
+    "test:db": "esbuild src/main/store/db-selftest.ts --bundle --platform=node --target=node16 --external:better-sqlite3 --outfile=out/db-selftest.cjs --log-level=warning && cross-env ELECTRON_RUN_AS_NODE=1 electron out/db-selftest.cjs",
+    "smoke": "npm run build && cross-env PANTRY_SMOKE=1 electron .",
+    "dist:win": "npm run build && cross-env NO_UPDATE_NOTIFIER=1 electron-builder --win --x64 --publish never",
+    "dist:win:ia32": "npm run build && cross-env NO_UPDATE_NOTIFIER=1 electron-builder --win --ia32 --publish never",
+    "dist:linux": "npm run build && cross-env NO_UPDATE_NOTIFIER=1 USE_HARD_LINKS=false electron-builder --linux deb:x64 AppImage:x64 --publish never",
+    "dist:linux:arm64": "npm run build && cross-env NO_UPDATE_NOTIFIER=1 USE_HARD_LINKS=false electron-builder --linux deb:arm64 AppImage:arm64 --publish never",
+    "dist:mac": "npm run build && cross-env NO_UPDATE_NOTIFIER=1 electron-builder --mac --publish never"
+  },
+  "build": {
+    "appId": "com.pantry.app",
+    "productName": "Hive",
+    "electronVersion": "22.3.27",
+    "npmRebuild": false,
+    "asar": true,
+    "asarUnpack": [
+      "**/better_sqlite3.node",
+      "out/main/acp/**",
+      "node_modules/@agentclientprotocol/sdk/**",
+      "node_modules/zod/**"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "out/**",
+      "package.json"
+    ],
+    "publish": null,
+    "win": {
+      "icon": "build/icons/pantry-logo-icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64",
+            "ia32"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64",
+            "ia32"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": false,
+      "artifactName": "Hive-${version}-win-${arch}-setup.${ext}",
+      "shortcutName": "Hive"
+    },
+    "portable": {
+      "artifactName": "Hive-${version}-win-${arch}-portable.${ext}"
+    },
+    "linux": {
+      "icon": "build/icons/linux",
+      "maintainer": "Hive Maintainers <hive-maintainers@example.invalid>",
+      "target": [
+        "deb",
+        "AppImage"
+      ],
+      "category": "Network",
+      "artifactName": "Hive-${version}-${os}-${arch}.${ext}",
+      "desktop": {
+        "StartupWMClass": "hive",
+        "Name": "Hive"
+      }
+    },
+    "deb": {
+      "compression": "gz",
+      "depends": [
+        "libgtk-3-0",
+        "libnotify4",
+        "libnss3",
+        "libxss1",
+        "libxtst6",
+        "xdg-utils",
+        "libatspi2.0-0",
+        "libuuid1"
+      ]
+    },
+    "mac": {
+      "icon": "build/icons/pantry-logo-icon.icns",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ],
+      "artifactName": "Hive-${version}-${os}-${arch}.${ext}",
+      "extendInfo": {
+        "CFBundleDisplayName": "Hive",
+        "CFBundleName": "Hive"
+      },
+      "extraResources": [
+        {
+          "from": "build/mac/zh_CN.lproj",
+          "to": "zh_CN.lproj"
+        },
+        {
+          "from": "build/mac/zh-Hans.lproj",
+          "to": "zh-Hans.lproj"
+        }
+      ]
+    },
+    "extraResources": [
+      {
+        "from": "build/icons/window-icon.png",
+        "to": "icons/pantry.png"
+      },
+      {
+        "from": "LICENSE",
+        "to": "LICENSE"
+      }
+    ]
+  },
+  "devDependencies": {
+    "@electron/rebuild": "3.6.0",
+    "@types/better-sqlite3": "7.6.11",
+    "@types/markdown-it": "14.2.0",
+    "@types/node": "16.18.119",
+    "@vitejs/plugin-vue": "5.2.1",
+    "cross-env": "7.0.3",
+    "electron": "22.3.27",
+    "electron-builder": "24.13.3",
+    "electron-vite": "2.3.0",
+    "naive-ui": "2.43.2",
+    "onnxruntime-web": "1.20.1",
+    "opentype.js": "2.0.0",
+    "pinia": "2.2.6",
+    "png2icons": "2.0.1",
+    "typescript": "5.6.3",
+    "vite": "5.4.11",
+    "vitest": "2.1.8",
+    "vue": "3.5.13",
+    "vue-tsc": "2.1.10",
+    "@vue/compiler-dom": "^3.4.0",
+    "@vue/compiler-sfc": "^3.4.0"
+  }
+}

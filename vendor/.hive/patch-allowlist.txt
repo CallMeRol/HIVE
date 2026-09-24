@@ -1,0 +1,244 @@
+# Hive 补丁白名单（文件级，fail-closed：不在本表的差异一律违规）
+# 语义：
+#   path <file>        —— 上游文件，允许与 baseline 不同（修改/删除）。必须精确到文件，禁通配。
+#   new <dir>/**       —— Hive 新增命名空间；仅匹配 baseline 中不存在的路径，不能用来改上游文件。
+#   new <file>         —— 单个新增文件。
+# 路径相对 vendor/teahouse/。跨机状态若需改成员列表（groups.ts）已在此显式记账。
+
+# 主进程入口（headless / local-api 挂载点，#44+）
+path src/main/index.ts
+# 消息渲染组件（Markdown / 状态点注入，#57+）
+path src/renderer/src/components/MessageRow.vue
+path src/renderer/src/components/ChatPane.vue
+# 群信息面板（移出结果/拒绝原因的可见反馈，#53）
+path src/renderer/src/components/GroupPanel.vue
+# 邀请对话框（updateGroup 返回面变宽后的防御性收窄，#53）
+path src/renderer/src/components/GroupInviteDialog.vue
+# 通讯录成员行：绿/灰点就地升级为五档负担环（#47）
+path src/renderer/src/components/PeerList.vue
+# 该组件的既有断言锁死了被替换的旧 DOM 字面量；按 #252 意图更新（#47）
+path src/renderer/src/ui/contact-presence.test.ts
+# IPC 契约面：PeerView 增 hive 私有 burden 字段 + 五档 tag 常量（#47）
+path src/shared/ipc.ts
+# 依赖清单（新增锁定依赖，#46+）
+path package.json
+path package-lock.json
+# runner 私有协议 + ACP 握手/权限面（#49：probe 命令、--permission 策略、usage 上报）
+path src/main/acp/protocol.ts
+path src/main/acp/runner.mjs
+path src/main/acp/session.ts
+path src/main/acp/index.ts
+# Agent bridge：真实 usage → 本机负担上报（#49 AC5）
+path src/main/services/agent-bridge.ts
+# 负担语义：usage_update → BurdenReport 的纯函数转换（#49 AC5）
+path src/main/services/agent-status.ts
+# renderer 体积门：App.vue 静态闭包预算 800 → 802 KiB（#52 记账 #46 的实际增量）。
+# #46 引入 Markdown 渲染面后实测 819561B 已超 800 KiB，该门一直未通过 —— 后果是
+# `pnpm run build` 失败、out/ 停在 #46 之前，agent 链路从未在真节点上跑起来。
+path scripts/check-renderer-bundles.mjs
+# 群成员列表（跨机状态定向发送所需，#55+）
+# 另：应用远端 info 后广播 `removed`（被移出节点据此收工退出），#53。
+path src/main/services/groups.ts
+# IPC 词汇表：移出拒绝码的类型出口（#53）
+path src/shared/ipc.ts
+# preload 暴露面：updateGroup 返回形状扩为「GroupView | 拒绝原因」（#53）
+path src/preload/index.ts
+# 英文文案：移出拒绝原因（#53）；pending/确认键/目标状态文案（#50）
+path src/i18n/en.ts
+
+# Hive #50：pending 收集期 + 确认键 + 逐人放权 + 会话目标冻结。
+# 主进程状态机与持久化（本机账本 pending.json + pending-audit.jsonl）。
+new src/main/hive/pending-core.ts
+new src/main/hive/pending-core.test.ts
+new src/main/hive/pending-service.ts
+new src/main/hive/pending-gate.ts
+
+# Hive #54：交接与回收。handover.ts = 七节 H2 解析 + 产物三件套（路径/sha256/复跑）
+# 的纯函数校验（fail-closed，#60 复用）；单测 handover.test.ts 钉契约主干。
+# 两者落在既有 `new src/main/hive/**` 目录条目内，此处无需新条目（显式留注释记账）。
+# Hive #60：损坏交接拒绝接手。handover.ts 增 handoverRejectText/HandoffEvidence；
+# dispatch.ts 输入交接拒绝群内可见 + 落盘 handoffs/；agent-bridge handoffGate 开工前复验；
+# session-ledger 增 handover kind；local-api dispatch 透传 handover；PeerList 仅改注释。
+# 全部落在既有 path/new 条目内（hive/**、local-api/**、path index/bridge/session-ledger/PeerList）。
+# GUI 投影：收集期药丸 + 目标状态徽标（A5）。
+new src/renderer/src/stores/hive-pending.ts
+new src/renderer/src/components/HivePendingBar.vue
+
+# 视觉 token 表：Hive 品牌换肤（去 teahouse 绿，落 PRD §5 的 #0a0e17 + #e94560）。
+# 唯一杠杆点——33 个组件引用 var(--primary*)，只换本文件即全站生效。
+path src/renderer/src/styles/tokens.css
+# （naive-theme.ts / naive-theme.test.ts / CaptureApp.vue / capture-rendering.test.ts
+#  的换肤白名单已在下方 #64「视觉收口」块中声明，此处不重复列入。）
+# 构建配置：runner.mjs / fake-acp-agent.mjs 是运行时 spawn 的静态脚本，构建后拷入 out/main/acp/（#50）。
+path electron.vite.config.ts
+
+# Hive 新增命名空间（只匹配 baseline 外路径，不能豁免上游文件修改）。
+# local-api：与 ipc/ 并列的回环第二前台（health / quit / messages / SSE），#44。
+new src/main/local-api/**
+# hive：Hive 业务层（成员主人登记表 + 移出/孤儿清理判权），#53。
+new src/main/hive/**
+# 移出拒绝码的三面共用形状（main 判定 / preload 透传 / renderer 文案），#53。
+new src/shared/hive-member.ts
+# 跨机 agent 状态通道（发/收/自校验/TTL），#47。单文件：该目录下其余文件是上游 services。
+new src/main/services/agent-status.ts
+
+# acp：ACP runner（官方 SDK，跑系统 node ≥22 子进程）+ fake peer（#46）。
+new src/main/acp/**
+
+# 单个新增文件（#46）。
+# 正式消息分条（自然边界 + 3500B 上限）与 session 账本（JSONL/Markdown append-only）。
+new src/main/services/formal-message.ts
+new src/main/services/session-ledger.ts
+new src/main/services/agent-bridge.ts
+# Markdown 渲染面：markdown-it + DOMPurify（ADR-0008 统一群内渲染）。
+new src/renderer/src/utils/markdown.ts
+new src/renderer/src/components/MessageBody.vue
+
+# 接入对话框：选 runtime / 名称 / 工作目录 / 模型 / permission 策略（#49）。
+# 单文件：该目录下其余都是上游组件，不能整目录放宽。
+new src/renderer/src/components/AgentAttachDialog.vue
+
+# 机库（#52）：命令面返回形状（三面共用词）。读取面在 src/main/hive/hangar.ts
+# 与 src/main/local-api/hangar-page.ts —— 两者已被上面的 `new .../**` 目录条目覆盖。
+new src/shared/hive-hangar.ts
+# 把 src/main/acp 的裸 .mjs 复制进构建产物（#46 缺口修正，见 docs/vendor/teahouse.md）。
+new scripts/copy-acp-runtime.mjs
+# 视觉 token 表：Hive 品牌换肤（去 teahouse 绿，落 PRD §5 的 #0a0e17 + #e94560）。
+# 唯一杠杆点——33 个组件引用 var(--primary*)，只换本文件即全站生效。
+path src/renderer/src/styles/tokens.css
+
+# Hive 品牌改造（去 teahouse 品牌名与 logo，落美术交付的红色蜂巢标）。
+# 界面/主进程品牌字符串「茶话间」→「Hive」、i18n 英文词表 value 侧 Teahouse → Hive。
+path src/i18n/en.ts
+path src/main/index.ts
+path src/main/services/diagnostics.ts
+path src/main/services/porter.ts
+path src/main/store/app-state.ts
+path src/main/windows/capture-support.ts
+path src/main/windows/settings-window.ts
+path src/main/windows/tray-badge.ts
+path src/main/windows/tray.ts
+path src/renderer/src/App.vue
+path src/renderer/src/SettingsApp.vue
+path src/renderer/src/components/SetupWizard.vue
+# 品牌 logo 组件：彩色位图换为美术交付的 hive-app-icon.png
+path src/renderer/src/components/PantryBrandLogo.vue
+# 美术交付的 Hive 应用图标（1254px 源缩至 512px）
+new src/renderer/src/assets/brand/hive-app-icon.png
+# 单色托盘源：由美术位图派生的 Hive 剪影（替换上游绿色剪影 SVG 的消费）
+new build/icons/hive-tray-mono.png
+
+# --- 视觉收口：绿调衍生色 → Hive 红/深蓝（tokens.css 换肤的连带面）---
+# 上面 tokens.css 只换 token，组件里还有按主色硬编码的 rgba 衍生值（描边/底/影），
+# 仍是 teahouse 绿。逐文件把绿调 rgba 按同一语义映射到 Hive 红 / 中性黑。
+path src/renderer/src/CaptureApp.vue
+path src/renderer/src/components/ConvList.vue
+path src/renderer/src/components/ForwardDialog.vue
+path src/renderer/src/components/ImageBubble.vue
+path src/renderer/src/components/ImageViewer.vue
+path src/renderer/src/components/PkBubble.vue
+# Naive UI 主题 overrides：主色/中性色整表换 Hive（原先整表是茶青绿）
+path src/renderer/src/ui/naive-theme.ts
+# 头像配色表首项「茶青 #3D8B6B」→「蜂红 #E94560」（既是可见绿块也是茶品牌名）
+path src/renderer/src/utils/avatar.ts
+# 截图窗主色兜底字面量 → Hive 红
+# （capture-rendering.test.ts / naive-theme.test.ts / settings-depth.test.ts
+#  的断言原样钉死了被替换的旧绿字面量，按 #64 意图更新为 Hive 值）
+path src/renderer/src/ui/capture-rendering.test.ts
+path src/renderer/src/ui/naive-theme.test.ts
+path src/renderer/src/ui/settings-depth.test.ts
+
+# --- 品牌字符串：产物名/packaging/图标链路 ---
+# productName → Hive 连带产物名（Hive-${version}-*.exe/.deb/.dmg/.app），
+# updater 的产物名匹配必须与之一致，否则更新链路失效。
+path package.json
+path src/main/services/updater.ts
+path src/main/services/updater.test.ts
+# 诊断包文件名 Teahouse-diagnostics-*.zip → Hive-diagnostics-*.zip
+path src/main/services/diagnostics-ui.ts
+# mac 中文本地化 CFBundle 显示名
+path build/mac/zh_CN.lproj/InfoPlist.strings
+path build/mac/zh-Hans.lproj/InfoPlist.strings
+# 图标生成链路：母版与 renderer 位图改 Hive 名/新源
+path scripts/gen-app-icons.mjs
+path scripts/gen-tray-icon.mjs
+# 生成产物：Hive 母版派生的 .ico/.icns/PNG 与 Linux hicolor 全档
+path build/icons/pantry-logo-icon-master.png
+path build/icons/pantry-logo-icon.png
+path build/icons/pantry-logo-icon.ico
+path build/icons/pantry-logo-icon.icns
+path build/icons/window-icon.png
+path build/icons/linux/16x16.png
+path build/icons/linux/24x24.png
+path build/icons/linux/32x32.png
+path build/icons/linux/48x48.png
+path build/icons/linux/64x64.png
+path build/icons/linux/96x96.png
+path build/icons/linux/128x128.png
+path build/icons/linux/256x256.png
+path build/icons/linux/512x512.png
+# 托盘图标内嵌产物（由新 mono/彩色源重生成）
+path src/main/windows/tray-icon.ts
+# 既有断言钉死旧品牌 tooltip 与位图断言，按 #64 意图更新
+path src/main/windows/tray.test.ts
+path src/main/windows/tray-badge.test.ts
+path src/renderer/src/ui/brand-icon-raster.test.ts
+path src/renderer/src/utils/image-text-layer.test.ts
+# updater 产物名断言的同批测试夹具
+path src/main/services/files.test.ts
+path src/main/net/codec.test.ts
+path src/main/notifications.test.ts
+# 窗口标题 <title>Hive</title>
+path src/renderer/index.html
+# README 中英文品牌名与安装路径示例（成对，doc-locales 门要求锚点一致）
+path README.md
+path README.en.md
+# 测试夹具里的品牌字面量（OCR 样例文本 / 传输文件名）
+path src/renderer/src/utils/ocr-client.test.ts
+path src/main/services/image-ocr-cache.test.ts
+path src/main/net/transfer.test.ts
+
+# Hive #57：成员表派遣面 + 星系派遣网络图（只追加，不重排）。
+# naive-ui 主题常量与截图标注兜底色：去残留 teahouse 绿（tokens.css 换肤的收尾）。
+path src/renderer/src/ui/naive-theme.ts
+path src/renderer/src/ui/naive-theme.test.ts
+path src/renderer/src/CaptureApp.vue
+path src/renderer/src/ui/capture-rendering.test.ts
+# 星系派遣网络图（新组件，懒加载进 App.vue，不进静态闭包）。
+new src/renderer/src/components/DispatchNetwork.vue
+# 五档精灵资产落位（sprite 契约 A4：文件名沿用美术原名）。
+new src/renderer/src/assets/hive/state/**
+# rail 网络图 icon（追加一个 name 分支）。
+path src/renderer/src/components/PantryIcon.vue
+# 主窗新增 network 页签 + DispatchNetwork 懒加载（#57）。
+path src/renderer/src/App.vue
+# 该测试钉死的状态点 DOM 字面量随 #57 头像右下角改位同步更新。
+path src/renderer/src/ui/contact-presence.test.ts
+
+# Hive #59：runner 猝死 → 异常退群 + 任务回待领取 + 人工补派。
+# 派遣账本增记 pids 列（只增可选字段，迁移规则 1）+ markAbnormal/unclaim 结算；
+# 新增异常退群探测器与待领取任务 GUI 面（类型出口 + 面板组件）。
+path src/main/local-api/index.ts
+new src/main/hive/abnormal-exit.ts
+new src/main/hive/abnormal-exit.test.ts
+new src/main/hive/dispatch-claim.test.ts
+new src/shared/hive-claimable.ts
+new src/renderer/src/stores/hive-claimable.ts
+new src/renderer/src/components/HiveClaimableBar.vue
+
+# Hive #25：packaged APP 执行不了 asar 内的 ACP runner（#62 发布验收发现的缺口）。
+# package.json 的 build.asarUnpack 增 out/main/acp/**、@agentclientprotocol/sdk/**、
+# zod/**（runner 跑在**系统 node 子进程**里，读不穿 asar；SDK 与 zod 是它的加载期依赖）；
+# index.ts 的 spawn cwd 与 runner 目录解析改走 app.asar.unpacked（app.getAppPath() 在
+# 打包态指到 app.asar 文件，spawn 直接 ENOTDIR）；agent-attach.ts 的 resolveRunnerDir
+# 先把候选映射到 unpacked。新增 packaged-paths.ts 收敛这两条映射 + 单测。
+path src/main/hive/agent-attach.ts
+new src/main/hive/packaged-paths.ts
+new src/main/hive/packaged-paths.test.ts
+
+# Hive 美术参考素材：tachikoma 立绘与频道横幅（ref 参考图，#26/#27 UI 复刻用）。
+new src/renderer/src/assets/hive/ref/channel-banner.png
+new src/renderer/src/assets/hive/ref/tachikoma-blue.png
+new src/renderer/src/assets/hive/ref/tachikoma-red-msg.png
+new src/renderer/src/assets/hive/ref/tachikoma-red.png
+new src/renderer/src/assets/hive/ref/tachikoma-white.png

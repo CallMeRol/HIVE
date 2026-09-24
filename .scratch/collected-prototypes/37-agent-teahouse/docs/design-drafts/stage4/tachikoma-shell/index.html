@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<!-- PROTOTYPE（throwaway）· wayfinder ticket #37 · Tachikoma 外壳 v4
+     参考图（唯一视觉真相）：docs/UI-draft/804f1f634d5c9bd73bb7f196c9cedc48.png（launch-plan 频道）
+     业务行为（唯一行为真相）：wayfinder map #20 已定 decisions
+     v4 = 按美术稿逐区域复刻：
+       ├ 左栏 260px：Tachikoma logo + Home/Inbox/Agents/Projects/Search/Settings
+       │   + Channels（general/launch-plan/product/engineering/design/research/random）
+       │   + Direct messages（alice/bob/charlie/Add people）+ 底部用户
+       ├ 中区：chat-head（← # launch-plan ☆ + 搜索 + 日语标语）
+       │   + banner（攻壳城市 + PUBLIC CHANNEL + # launch-plan + From intelligence to impact.）
+       │   + 消息流 + 输入框（+ 回形针 笑脸 @ Aa | All participants | 发送）
+       └ 右栏 320px：Channel（# launch-plan + 描述 + Product/GTM/Launch tags）
+           + 统计行（4 Members / 3 Agents / 12 Files）
+           + Description + Members(4) See all + Active agents(3) See all
+           + Pinned(2) +
+     状态 GIF：state/*.gif（sleep/ease/tired/super_tired/ran_out）
+     图标：内联 SVG symbol（统一 1.5 描边 + currentColor），不用 Unicode 字形冒充图标
+     约束：#36 词表 / #17 五档色 / #34 本机视角 / #29 正式消息 / #30 pending
+     throwaway：state 全在内存、数据是假的、启动 = 双击本文件。 -->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PROTOTYPE · Tachikoma 外壳 v4 · 茶话间 + agent（ticket #37）</title>
+<style>
+  :root{
+    /* —— 美术稿采样色（804f1f6…png，PIL 逐像素采样）—— */
+    --bg:#0b1c2a;            /* 消息流/主区背景 */
+    --bg2:#09121d;           /* 左栏 sidebar */
+    --panel:#0a151e;         /* 右栏详情面板 */
+    --panel2:#101b28;        /* 输入框/卡片表面 */
+    --line:#1a2a3a;          /* 分隔线 */
+    --line2:#24344a;         /* 较强分隔线/边框 */
+    --fg:#e6edf3;
+    --fg2:#8b949e;
+    --fg3:#7a8592;           /* 原 #5a6a7a 实测 3.11:1（正文/时间戳）不合格，同色相提亮到 4.61:1 */
+    --accent:#e94560;        /* Tachikoma 红（美术稿主色） */
+    --accent-soft:rgba(233,69,96,.12);
+    --accent2:#0adf80;       /* 绿（Online/Active 状态） */
+    /* —— agent 五档（#17 契约）—— */
+    --st-idle:#58a6ff; --st-easy:#3fb950; --st-busy:#d29922; --st-over:#f0883e; --st-blow:#f85149;
+    /* —— 布局蓝图（自美术稿测量，1536×1024）—— */
+    --rail-w:260px; --details-w:320px; --chat-head-h:66px; --banner-h:185px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:#04070c;color:var(--fg);overflow:hidden;
+       font:14px/1.5 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+  ::selection{background:rgba(233,69,96,.28);color:#fff}
+  :focus-visible{outline:2px solid var(--st-idle);outline-offset:2px;border-radius:4px}
+
+  /* —— 统一图标：线性描边，currentColor，尺寸随 --ico —— */
+  .ic{width:var(--ico,16px);height:var(--ico,16px);flex:0 0 auto;display:block;
+      fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+  .ico-sprite{position:absolute;width:0;height:0;overflow:hidden}
+
+  a,button,[role="button"],.chan,.dm,.mrow,.arow,.prow,label{color:inherit}
+  button{font:inherit}
+
+  /* ============ 应用窗口（美术稿比例）============ */
+  .app{height:100vh;display:grid;grid-template-columns:var(--rail-w) 1fr var(--details-w)}
+
+  /* ============ 左栏 ============ */
+  .rail{background:var(--bg2);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0;overflow:hidden}
+  .macos{display:flex;gap:7px;padding:13px 16px 11px}
+  .macos i{width:11px;height:11px;border-radius:50%;display:block}
+  .macos i:nth-child(1){background:#ff5f57}.macos i:nth-child(2){background:#febc2e}.macos i:nth-child(3){background:#28c840}
+
+  .brand{display:flex;align-items:center;gap:11px;padding:4px 18px 16px;border-bottom:1px solid var(--line)}
+  .brand img{width:46px;height:46px;object-fit:contain;image-rendering:pixelated}
+  .brand .t1{font-size:17px;font-weight:800;letter-spacing:.01em}
+  .brand .t2{font-size:9px;color:var(--fg3);letter-spacing:.1em;margin-top:1px}
+
+  .nav{padding:10px 8px 4px}
+  .nav a{display:flex;align-items:center;gap:11px;padding:6px 10px;border-radius:7px;color:var(--fg2);text-decoration:none;font-size:13.5px;font-weight:500}
+  .nav a:hover{background:rgba(255,255,255,.04);color:var(--fg)}
+  .nav a.on{background:var(--accent-soft);color:var(--accent);font-weight:600;box-shadow:inset 2px 0 0 var(--accent)}
+  .nav a .ic{--ico:17px;opacity:.9}
+
+  .scroll{flex:1;overflow-y:auto;min-height:0;padding:2px 8px 10px}
+  .scroll::-webkit-scrollbar{width:4px}
+  .scroll::-webkit-scrollbar-thumb{background:var(--line2);border-radius:2px}
+
+  .sect{font-size:10px;font-weight:700;color:var(--fg3);letter-spacing:.1em;text-transform:uppercase;padding:16px 10px 5px;display:flex;justify-content:space-between;align-items:center}
+  .sect .add{color:var(--fg2);cursor:pointer;border:0;background:none;display:grid;place-items:center}
+  .sect .add:hover{color:var(--fg)}
+
+  .chan{display:flex;align-items:center;gap:8px;padding:4px 10px;border-radius:6px;cursor:pointer;color:var(--fg2);font-size:13px;position:relative}
+  .chan:hover{background:rgba(255,255,255,.04);color:var(--fg)}
+  .chan.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
+  .chan.on::before{content:'';position:absolute;left:0;top:20%;bottom:20%;width:2px;background:var(--accent);border-radius:1px}
+  .chan .hash{color:var(--fg3);width:13px;text-align:center;flex:0 0 auto;font-weight:600}
+  .chan.on .hash{color:var(--accent)}
+  .chan .nm{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  .dm{display:flex;align-items:center;gap:9px;padding:4px 10px;border-radius:6px;cursor:pointer;color:var(--fg2);font-size:13px}
+  .dm:hover{background:rgba(255,255,255,.04);color:var(--fg)}
+  .dm .fa{width:24px;height:24px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:11px;position:relative}
+  .dm .fa .dot{position:absolute;right:-1px;bottom:-1px;width:7px;height:7px;border-radius:50%;border:2px solid var(--bg2);background:var(--accent2)}
+  .dm .nm{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .dm.add{color:var(--fg2)}
+  .dm.add:hover{color:var(--fg)}
+  .dm .plus-slot{width:24px;display:grid;place-items:center;flex:0 0 auto;color:var(--fg2)}
+
+  .me{margin-top:auto;display:flex;align-items:center;gap:9px;padding:11px 14px;border-top:1px solid var(--line)}
+  .me .fa{width:28px;height:28px;border-radius:50%;background:#3a4a5a;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:12px;position:relative;flex:0 0 auto}
+  .me .fa .dot{position:absolute;right:-1px;bottom:-1px;width:8px;height:8px;border-radius:50%;border:2px solid var(--bg2);background:var(--accent2)}
+  .me .nm{font-size:12.5px;font-weight:600;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .me .team{font-size:9.5px;color:var(--fg3)}
+  .me .dots{color:var(--fg2);cursor:pointer;background:none;border:0;padding:2px;display:grid;place-items:center}
+  .me .dots:hover{color:var(--fg)}
+
+  /* ============ 中区 ============ */
+  .chat{display:flex;flex-direction:column;min-height:0;background:var(--bg);position:relative}
+  .chat-head{flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:0 16px;height:var(--chat-head-h);border-bottom:1px solid var(--line)}
+  .chat-head .back{color:var(--fg3);font-size:16px;cursor:pointer;width:20px}
+  .chat-head .hash{font-size:17px;color:var(--fg3)}
+  .chat-head .nm{font-size:16px;font-weight:700}
+  .chat-head .star{color:var(--fg3);font-size:14px;cursor:pointer}
+  .chat-head .topic{font-size:11.5px;color:var(--fg3);margin-top:1px}
+  .chat-head .sp{flex:1}
+  .chat-head .search{display:flex;align-items:center;gap:7px;background:var(--panel2);border:1px solid var(--line2);border-radius:8px;padding:6px 12px;color:var(--fg2);font-size:12px;min-width:220px;cursor:pointer}
+  .chat-head .search:hover{border-color:var(--fg3);color:var(--fg)}
+  .chat-head .search kbd{margin-left:auto;font-size:10px;background:var(--bg2);border-radius:4px;padding:1px 6px;border:1px solid var(--line2);font-family:inherit;color:var(--fg2)}
+  .chat-head .jp{text-align:right;line-height:1.3;margin-left:14px}
+  .chat-head .jp .j1{font-size:11px;color:var(--fg2)}
+  .chat-head .jp .j2{font-size:8px;color:var(--fg2);letter-spacing:.14em}
+  .chat-head .back, .chat-head .star{cursor:pointer;background:none;border:0;color:var(--fg2);display:grid;place-items:center}
+  .chat-head .back:hover, .chat-head .star:hover{color:var(--fg)}
+  .chat-head .star{--ico:16px}
+
+  /* banner 图（自美术稿裁切）已烧入 PUBLIC CHANNEL / # 频道名 / 标语，不再叠 DOM 文字，
+     否则两段文字重影。频道名与描述由 chat-head 承担。 */
+  .banner{flex:0 0 auto;position:relative;height:var(--banner-h);overflow:hidden;border-bottom:1px solid var(--line);background:
+    radial-gradient(120% 90% at 22% 120%, rgba(233,69,96,.20), transparent 62%),
+    linear-gradient(180deg,#132a44,#0b1520)}
+  .banner img{width:100%;height:100%;object-fit:cover;display:block}
+  .banner.noimg img{display:none}
+  .banner::after{content:'';position:absolute;inset:auto 0 0;height:34px;
+    background:linear-gradient(180deg,transparent,var(--bg));pointer-events:none}
+  .banner .chan-current{position:absolute;left:22px;bottom:22px;display:none;align-items:center;gap:8px;font-size:21px;font-weight:800}
+  .banner .chan-current .hash{color:var(--fg3);font-size:18px}
+  .banner.noimg .chan-current{display:flex}
+
+  .msgs{flex:1;overflow-y:auto;min-height:0;padding:14px 22px}
+  .msgs::-webkit-scrollbar{width:4px}
+  .msgs::-webkit-scrollbar-thumb{background:var(--line2);border-radius:2px}
+  .day{text-align:center;font-size:10px;color:var(--fg3);letter-spacing:.1em;text-transform:uppercase;margin:2px 0 16px;position:relative}
+  .day::before,.day::after{content:'';position:absolute;top:50%;width:36%;height:1px;background:var(--line)}
+  .day::before{left:0}.day::after{right:0}
+
+  .msg{display:flex;gap:12px;margin-bottom:18px}
+  .msg .fa{width:38px;height:38px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;position:relative}
+  .msg .fa.round{border-radius:50%;color:#fff;font-weight:700;font-size:14px}
+  .msg .fa img,.msg .fa gif{width:100%;height:100%;object-fit:contain;image-rendering:pixelated;border-radius:8px;background:var(--panel2)}
+  .msg .body{min-width:0;flex:1}
+  .msg .who{display:flex;gap:7px;align-items:baseline}
+  .msg .who .nm{font-weight:700;font-size:13.5px}
+  .msg .who .tm{font-size:10.5px;color:var(--fg3)}
+  .msg .txt{font-size:13.5px;color:var(--fg);margin-top:3px;line-height:1.6;white-space:pre-wrap}
+  .msg .file{display:flex;align-items:center;gap:10px;margin-top:8px;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:9px 12px;max-width:400px}
+  .msg .file .fi{width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:10px;color:#fff;flex:0 0 auto}
+  .msg .file .fm{flex:1;min-width:0}
+  .msg .file .fm .fn{font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .msg .file .fm .fs{font-size:10.5px;color:var(--fg3);margin-top:1px}
+  .msg .file .dl{color:var(--fg2);background:none;border:0;padding:3px;cursor:pointer;display:grid;place-items:center;flex:0 0 auto}
+  .msg .file .dl:hover{color:var(--fg)}
+  .msg .react{display:flex;gap:6px;margin-top:7px}
+  .msg .react span{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--fg2);background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:2px 8px;cursor:pointer}
+  .msg .react span:hover{border-color:var(--fg3);color:var(--fg)}
+  .ai-badge{font-size:9px;font-weight:800;color:#04101f;background:var(--st-idle);border-radius:3px;padding:1px 4px;letter-spacing:.02em}
+
+  /* 输入框（美术稿底部 composer） */
+  .composer{flex:0 0 auto;padding:10px 22px 14px}
+  .box{display:flex;gap:4px;align-items:center;background:var(--panel2);border:1px solid var(--line2);border-radius:12px;padding:11px 14px}
+  .box .plus{width:26px;height:26px;border-radius:50%;border:1px solid var(--line2);background:transparent;color:var(--fg2);cursor:pointer;flex:0 0 auto;display:grid;place-items:center}
+  .box .plus:hover{color:var(--fg);border-color:var(--fg3)}
+  .box input{flex:1;border:0;background:transparent;font:inherit;font-size:13.5px;color:var(--fg);outline:none;padding:0 6px}
+  .box input::placeholder{color:var(--fg2)}
+  .box .tool{background:none;border:0;color:var(--fg2);padding:4px;cursor:pointer;flex:0 0 auto;display:grid;place-items:center}
+  .box .tool:hover{color:var(--fg)}
+  .box .tool.typo{font-size:12px;font-weight:700;letter-spacing:.01em;width:22px;height:22px;padding:0}
+  .box .who{font-size:11.5px;color:var(--fg2);border:1px solid var(--line2);border-radius:8px;padding:4px 10px;cursor:pointer;white-space:nowrap;margin-left:6px}
+  .box .who:hover{color:var(--fg)}
+  .box .send{background:var(--accent);color:#fff;border:0;border-radius:9px;width:32px;height:32px;cursor:pointer;flex:0 0 auto;margin-left:8px;display:grid;place-items:center}
+  .box .send:hover{background:#f2556e}
+  .box .send .ic{--ico:15px}
+
+  /* 底部状态条（在流内，不绝对定位 —— 绝对定位会压住输入框 10px） */
+  .statusbar{flex:0 0 auto;display:flex;justify-content:space-between;align-items:center;
+             padding:5px 22px;font-size:9px;letter-spacing:.16em;color:var(--fg3);text-transform:uppercase;
+             border-top:1px solid var(--line);background:var(--bg)}
+  .statusbar b{color:var(--accent);font-weight:700}
+
+  /* ============ 右栏 ============ */
+  .details{background:var(--panel);border-left:1px solid var(--line);overflow-y:auto;min-height:0;padding:14px 14px 40px}
+  .details::-webkit-scrollbar{width:4px}
+  .details::-webkit-scrollbar-thumb{background:var(--line2);border-radius:2px}
+
+  .card{background:rgba(255,255,255,.02);border:1px solid var(--line);border-radius:11px;padding:13px 14px;margin-bottom:11px}
+  .card h4{font-size:10px;font-weight:700;color:var(--fg3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
+  .card h4 .lnk{color:var(--fg2);font-size:11px;text-transform:none;letter-spacing:0;cursor:pointer;font-weight:500;background:none;border:0;padding:2px 0;display:inline-flex;align-items:center;gap:3px}
+  .card h4 .lnk:hover{color:var(--fg)}
+  .card h4 .plus{color:var(--fg2);cursor:pointer;background:none;border:0;padding:2px;display:grid;place-items:center}
+  .card h4 .plus:hover{color:var(--fg)}
+
+  .ch-id{display:flex;gap:8px;align-items:baseline;margin-bottom:4px}
+  .ch-id .hash{font-size:16px;color:var(--fg3)}
+  .ch-id .nm{font-size:16px;font-weight:800}
+  .ch-desc{font-size:12px;color:var(--fg2);line-height:1.55;margin:6px 0 10px}
+  .ch-tags{display:flex;gap:5px;flex-wrap:wrap}
+  .ch-tags span{font-size:10.5px;color:var(--fg2);border:1px solid var(--line2);border-radius:999px;padding:2px 9px}
+
+  .stats{display:flex;margin:10px 0 2px;border-top:1px solid var(--line);padding-top:10px}
+  .stats .st{flex:1;text-align:center}
+  .stats .st + .st{border-left:1px solid var(--line)}
+  .stats .st b{display:block;font-size:16px;font-weight:800}
+  .stats .st span{font-size:9.5px;color:var(--fg3);letter-spacing:.06em;text-transform:uppercase}
+
+  .mrow{display:flex;align-items:center;gap:9px;padding:4px 0;font-size:12.5px}
+  .mrow .fa{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:10px;flex:0 0 auto;position:relative;font-style:normal}
+  .mrow .fa .dot{position:absolute;right:-1px;bottom:-1px;width:6px;height:6px;border-radius:50%;border:2px solid var(--panel);background:var(--accent2)}
+  .mrow .nm{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mrow .you{font-size:9.5px;color:var(--fg3)}
+
+  .arow{display:flex;align-items:center;gap:9px;padding:5px 0;font-size:12.5px}
+  .arow .tachi{width:28px;height:28px;object-fit:contain;image-rendering:pixelated;border-radius:6px;background:rgba(255,255,255,.04);padding:1px;flex:0 0 auto}
+  .arow .nm{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--fg);font-weight:500}
+  .arow .st{font-size:10px;color:var(--fg2);display:flex;align-items:center;gap:5px;flex:0 0 auto}
+  .arow .st i{width:6px;height:6px;border-radius:50%;background:var(--accent2);font-style:normal}
+  .arow .st i.idle{background:var(--fg3)}
+  .arow .st i.off{background:var(--fg3);opacity:.5}
+
+  .netmap{background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:8px;padding:7px;margin-bottom:9px}
+  .netmap svg{display:block;width:100%;height:auto}
+  .netmap .cap{font-size:9px;color:var(--fg3);margin-top:4px;display:flex;justify-content:space-between;letter-spacing:.04em}
+
+  .prow{display:flex;align-items:center;gap:9px;padding:4px 0;font-size:12px}
+  .prow .fi{width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:8px;color:#fff;flex:0 0 auto}
+  .prow .nm{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .prow .meta{font-size:10px;color:var(--fg3);flex:0 0 auto;text-align:right;line-height:1.3}
+</style>
+</head>
+<body>
+
+<!-- ══════════ 图标系统：一套描边图标，1.5 描边 + currentColor ══════════ -->
+<svg class="ico-sprite" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="i-home" viewBox="0 0 20 20"><path d="M3.2 8.2 10 3l6.8 5.2V16a1 1 0 0 1-1 1h-3.4v-4.4H7.6V17H4.2a1 1 0 0 1-1-1z"/></symbol>
+  <symbol id="i-inbox" viewBox="0 0 20 20"><path d="M3 6.6 5.1 3.4h9.8L17 6.6V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M3 10.4h3.6l.9 1.7h5l.9-1.7H17"/></symbol>
+  <symbol id="i-agents" viewBox="0 0 20 20"><rect x="4.2" y="6.4" width="11.6" height="9"/><path d="M10 3v3.4"/><path d="M9.2 2.2h1.6"/><path d="M2.6 9.2v4M17.4 9.2v4"/><path d="M7 10.4h1.2M11.8 10.4H13"/><path d="M8 13.2h4"/><path d="m5 15.4-1 1.6M15 15.4l1 1.6"/></symbol>
+  <symbol id="i-projects" viewBox="0 0 20 20"><path d="M3 5.6a1 1 0 0 1 1-1h4l1.6 2H16a1 1 0 0 1 1 1V15a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></symbol>
+  <symbol id="i-search" viewBox="0 0 20 20"><circle cx="9" cy="9" r="5.2"/><path d="m12.9 12.9 3.6 3.6"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 20 20"><circle cx="10" cy="10" r="2.4"/><path d="M10 2.6v2M10 15.4v2M2.6 10h2M15.4 10h2M4.76 4.76l1.42 1.42M13.82 13.82l1.42 1.42M15.24 4.76l-1.42 1.42M6.18 13.82l-1.42 1.42"/></symbol>
+  <symbol id="i-users" viewBox="0 0 20 20"><circle cx="7.8" cy="7" r="2.8"/><path d="M2.8 16.4c0-2.9 2.2-4.6 5-4.6s5 1.7 5 4.6"/><path d="M13.4 4.6a2.8 2.8 0 0 1 0 5.4M14.6 12.2c1.9.5 3.1 1.9 3.1 4.2"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 20 20"><path d="M10 4.4v11.2M4.4 10h11.2"/></symbol>
+  <symbol id="i-paperclip" viewBox="0 0 20 20"><path d="M15.6 9.4 9.9 15a3.3 3.3 0 0 1-4.6-4.6l6-6a2.2 2.2 0 0 1 3.1 3.1l-6 6a1.1 1.1 0 0 1-1.6-1.6l5.5-5.4"/></symbol>
+  <symbol id="i-smile" viewBox="0 0 20 20"><circle cx="10" cy="10" r="7"/><path d="M7.5 8.3h.01M12.5 8.3h.01"/><path d="M7.3 12.1a3.5 3.5 0 0 0 5.4 0"/></symbol>
+  <symbol id="i-at" viewBox="0 0 20 20"><circle cx="10" cy="10" r="3.1"/><path d="M13.1 6.9v3.9a2.4 2.4 0 0 0 4.4 1.3 7.3 7.3 0 1 0-2.9 5.1"/></symbol>
+  <symbol id="i-chevron-down" viewBox="0 0 20 20"><path d="m5.6 8 4.4 4.4L14.4 8"/></symbol>
+  <symbol id="i-chevron-right" viewBox="0 0 20 20"><path d="m8 5.6 4.4 4.4L8 14.4"/></symbol>
+  <symbol id="i-send" viewBox="0 0 20 20"><path d="M10 16.4V3.8M5.2 8.6 10 3.8l4.8 4.8"/></symbol>
+  <symbol id="i-arrow-left" viewBox="0 0 20 20"><path d="M16 10H4M8.6 5.2 3.8 10l4.8 4.8"/></symbol>
+  <symbol id="i-star" viewBox="0 0 20 20"><path d="m10 3.4 2 4.1 4.5.7-3.2 3.2.7 4.5-4-2.1-4 2.1.7-4.5L3.5 8.2l4.5-.7z"/></symbol>
+  <symbol id="i-pencil" viewBox="0 0 20 20"><path d="m4 16 .7-3.1 8.4-8.4a1.5 1.5 0 0 1 2.1 0l.3.3a1.5 1.5 0 0 1 0 2.1l-8.4 8.4z"/><path d="m11.6 5.7 2.7 2.7"/></symbol>
+  <symbol id="i-download" viewBox="0 0 20 20"><path d="M10 3.8v8.4M6.6 9l3.4 3.4L13.4 9M4 16.2h12"/></symbol>
+  <symbol id="i-more" viewBox="0 0 20 20"><path d="M5.2 10h.01M10 10h.01M14.8 10h.01"/></symbol>
+</svg>
+
+<div class="app">
+  <!-- ══════════ 左栏 ══════════ -->
+  <aside class="rail" id="rail"></aside>
+
+  <!-- ══════════ 中区：群聊 ══════════ -->
+  <section class="chat">
+    <div class="chat-head" id="chatHead"></div>
+    <div class="banner" id="banner">
+      <img id="bannerImg" src="../tachikoma-assets/channel-banner.png" alt="攻壳城市夜景频道头图（图内已含频道名与标语）" onerror="this.remove()">
+      <div class="chan-current"><span class="hash">#</span><span id="bannerChan"></span></div>
+    </div>
+    <div class="msgs" id="msgs"></div>
+    <div class="composer">
+      <div class="box">
+        <button class="plus" title="添加" aria-label="添加附件或内容"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></button>
+        <input id="composerInput" placeholder="Message #launch-plan…" aria-label="消息内容">
+        <button class="tool" title="附件" aria-label="添加附件"><svg class="ic" aria-hidden="true"><use href="#i-paperclip"/></svg></button>
+        <button class="tool" title="表情" aria-label="插入表情"><svg class="ic" aria-hidden="true"><use href="#i-smile"/></svg></button>
+        <button class="tool" title="提及成员" aria-label="提及成员"><svg class="ic" aria-hidden="true"><use href="#i-at"/></svg></button>
+        <button class="tool typo" title="文字格式" aria-label="文字格式">Aa</button>
+        <button class="who" title="发送对象" aria-label="选择发送对象">All participants <svg class="ic" style="--ico:12px;display:inline-block;vertical-align:-1px" aria-hidden="true"><use href="#i-chevron-down"/></svg></button>
+        <button class="send" id="sendBtn" title="发送" aria-label="发送消息"><svg class="ic" aria-hidden="true"><use href="#i-send"/></svg></button>
+      </div>
+    </div>
+    <div class="statusbar">
+      <span><b>HUMAN</b> × AI × A BRIGHTER TOMORROW</span>
+      <span>TACHIKOMA · V1.0.0</span>
+    </div>
+  </section>
+
+  <!-- ══════════ 右栏：详情 ══════════ -->
+  <aside class="details" id="details"></aside>
+</div>
+
+<script>
+/* =====================================================================
+ * 塔奇克马状态 GIF + 精灵 PNG
+ * ===================================================================== */
+/* 资产在上级目录 stage4/tachikoma-assets/（自美术稿 804f1f6 裁切），状态 GIF 在同级 state/ */
+const GIF = {idle:'state/sleep.gif', easy:'state/ease.gif', busy:'state/tired.gif', over:'state/super_tired.gif', blow:'state/ran_out.gif', off:'state/sleep.gif'};
+const PNG = {red:'../tachikoma-assets/tachikoma-red-msg.png', blue:'../tachikoma-assets/tachikoma-blue.png', white:'../tachikoma-assets/tachikoma-white.png'};
+const BANNER = '../tachikoma-assets/channel-banner.png';
+/* 五档色环 hex（#17 契约 A2）——与 CSS --st-* 同源 */
+const HUE = {idle:'#58a6ff', easy:'#3fb950', busy:'#d29922', over:'#f0883e', blow:'#f85149', off:'#6e7681'};
+/* 人名头像底：从面板蓝调里派生，不用一根手挑的杂色 */
+const AV = ['#33507a','#3d5c72','#4a5a80','#3a5a66','#415a8c'];
+function avatarTone(i){ return AV[i % AV.length]; }
+const ico = (id, size) => `<svg class="ic"${size?` style="--ico:${size}px"`:''} aria-hidden="true"><use href="#i-${id}"/></svg>`;
+const STATUS = ['idle','easy','busy','over','blow','off'];
+const SL = {idle:'空闲',easy:'轻松',busy:'有点忙',over:'过载',blow:'快炸了',off:'离线'};
+
+/* 唯一有美术稿头图的频道（804f1f6 交付的就是 launch-plan） */
+const BANNER_CHAN = 'c-city';
+
+const CHANNELS = [
+  {id:'c-gen',  nm:'general',     topic:'团队日常', unread:0},
+  {id:'c-city', nm:'launch-plan', topic:'From intelligence to impact.', unread:0},
+  {id:'c-prod', nm:'product',     topic:'', unread:0},
+  {id:'c-eng',  nm:'engineering', topic:'', unread:0},
+  {id:'c-des',  nm:'design',      topic:'', unread:0},
+  {id:'c-res',  nm:'research',    topic:'', unread:0},
+  {id:'c-rand', nm:'random',      topic:'', unread:0},
+];
+
+const DMS = [
+  {id:'d-alice', nm:'alice-tyler', st:'on'},
+  {id:'d-bob',   nm:'bob-tyler',   st:'on'},
+  {id:'d-chrl',  nm:'charlie',     st:'on'},
+];
+
+const AGENTS = [
+  {id:'a-planner',  nm:'Planner',    role:'Strategic planning and go-to-market execution.', tachi:'red',   status:'busy', pct:14, depth:1, pending:false},
+  {id:'a-research', nm:'Researcher', role:'Deep research, competitive analysis, and insights.', tachi:'blue',  status:'easy', pct:6,  depth:2, pending:false},
+  {id:'a-builder',  nm:'Builder',    role:'Implementation, prototyping, and technical execution.', tachi:'white', status:'idle', pct:0,  depth:3, pending:true},
+];
+
+const MSGS = [
+  {who:'me',    txt:"Kicking off our launch plan discussion here. Let's align on audience, positioning, and\nkey milestones before we draft the GTM plan.", t:'9:12 AM', reactions:[{e:'❤️',n:3},{e:'🙌',n:2}]},
+  {who:'a-planner', txt:"I've prepared a first-pass outline based on our recent research.", t:'9:14 AM',
+   file:{fn:'Tachikoma_Launch_Plan_v0.1.pdf', fs:'Strategy · 14 pages · 2.4 MB', c:'#e94560'}},
+  {who:'d-alice', txt:"This looks solid! I especially like the audience segmentation.\nShould we also include a section on community and developer partnerships?", t:'9:20 AM'},
+  {who:'a-research', txt:"Here are some additional insights on community channels and potential partners.", t:'9:23 AM',
+   file:{fn:'Community_Partners_Research.pdf', fs:'Insights · 8 pages · 1.1 MB', c:'#58a6ff'}},
+  {who:'d-bob', txt:"Great. I'll take a pass on the messaging and work with design on the launch assets.\nLet's sync tomorrow to review.", t:'9:27 AM', reactions:[{e:'❤️',n:3},{e:'🙌',n:2}]},
+];
+
+const state = {chan:'c-city', msgs:[...MSGS], tick:0};
+
+/* ---------- 渲染 ---------- */
+const rail = document.getElementById('rail');
+const details = document.getElementById('details');
+
+function agentImg(a, size=28) {
+  const src = a.status==='off' ? GIF.off : GIF[a.status];
+  const gray = a.status==='off' ? 'filter:grayscale(1) opacity(.5);' : '';
+  return `<img class="tachi" src="${src}" style="width:${size}px;height:${size}px;${gray}" alt="${a.nm}" title="${a.nm} · ${SL[a.status]}">`;
+}
+
+function renderRail() {
+  const NAV = [
+    {id:'home',     nm:'Home'},
+    {id:'inbox',    nm:'Inbox'},
+    {id:'agents',   nm:'Agents'},
+    {id:'projects', nm:'Projects'},
+    {id:'search',   nm:'Search'},
+    {id:'settings', nm:'Settings'},
+  ];
+  rail.innerHTML = `
+    <div class="macos"><i></i><i></i><i></i></div>
+    <div class="brand">
+      <img src="${PNG.red}" alt="Tachikoma">
+      <div>
+        <div class="t1">Tachikoma</div>
+        <div class="t2">タチコマ · MORE TOGETHER.</div>
+      </div>
+    </div>
+    <nav class="nav">
+      ${NAV.map(n=>`<a href="#" data-nav="${n.id}">${ico(n.id)} ${n.nm}</a>`).join('')}
+    </nav>
+    <div class="scroll">
+      <div class="sect"><span>Channels</span><button class="add" title="新建频道" aria-label="新建频道">${ico('plus',14)}</button></div>
+      ${CHANNELS.map(c=>`<div class="chan ${state.chan===c.id?'on':''}" data-chan="${c.id}" role="button" tabindex="0" aria-current="${state.chan===c.id}">
+        <span class="hash" aria-hidden="true">#</span><span class="nm">${c.nm}</span>
+      </div>`).join('')}
+      <div class="sect"><span>Direct messages</span></div>
+      ${DMS.map((d,i)=>`<div class="dm" data-dm="${d.id}" role="button" tabindex="0">
+        <div class="fa" style="background:${avatarTone(i)}">${d.nm[0].toUpperCase()}<span class="dot" title="在线"></span></div>
+        <span class="nm">${d.nm}</span>
+      </div>`).join('')}
+      <div class="dm add" role="button" tabindex="0"><span class="plus-slot">${ico('plus',14)}</span><span class="nm">Add people</span></div>
+    </div>
+    <div class="me">
+      <div class="fa">N<span class="dot" title="在线"></span></div>
+      <div><div class="nm">npub1mock…</div><div class="team">Team</div></div>
+      <button class="dots" title="更多" aria-label="更多">${ico('more',16)}</button>
+    </div>`;
+}
+
+function renderChatHead() {
+  const c = CHANNELS.find(x=>x.id===state.chan);
+  document.getElementById('chatHead').innerHTML = `
+    <button class="back" title="返回" aria-label="返回">${ico('arrow-left',17)}</button>
+    <span class="hash" aria-hidden="true">#</span>
+    <span class="nm">${c.nm}</span>
+    <button class="star" title="收藏频道" aria-label="收藏频道">${ico('star',16)}</button>
+    <div>
+      <div class="topic">${c.topic||c.nm}</div>
+    </div>
+    <span class="sp"></span>
+    <button class="search" title="搜索" aria-label="搜索消息、文件或成员">${ico('search',14)} Search messages, files, or people… <kbd>⌘ K</kbd></button>
+    <div class="jp"><div class="j1">一緒に、もっと先へ。</div><div class="j2">FURTHER, TOGETHER.</div></div>`;
+  /* 头图只有 launch-plan 这一张（美术稿唯一交付）；别的频道用兜底底纹 + 频道名，不假装有图 */
+  document.getElementById('banner').classList.toggle('noimg', state.chan !== BANNER_CHAN);
+  document.getElementById('bannerChan').textContent = c.nm;
+  document.getElementById('composerInput').placeholder = `Message #${c.nm}…`;
+}
+
+function whoMeta(id) {
+  if(id==='me') return {kind:'human', nm:'You', hue:avatarTone(0), st:'easy'};
+  const di = DMS.findIndex(x=>x.id===id);
+  if(di>-1) return {kind:'human', nm:DMS[di].nm, hue:avatarTone(di), st:'easy'};
+  const a = AGENTS.find(x=>x.id===id);
+  return {kind:'agent', ...a};
+}
+
+function renderMsgs() {
+  document.getElementById('msgs').innerHTML = `
+    <div class="day">Today</div>
+    ${state.msgs.map(m=>{
+      const w = whoMeta(m.who);
+      const fa = w.kind==='human'
+        ? `<div class="fa round" style="background:${w.hue}" aria-hidden="true">${w.nm[0].toUpperCase()}</div>`
+        : `<div class="fa">${agentImg(w,38)}</div>`;
+      const ai = w.kind==='agent' ? `<span class="ai-badge" title="agent 成员">AI</span>` : '';
+      const file = m.file ? `<div class="file">
+        <div class="fi" style="background:${m.file.c}" aria-hidden="true">PDF</div>
+        <div class="fm"><div class="fn">${m.file.fn}</div><div class="fs">${m.file.fs}</div></div>
+        <button class="dl" title="下载 ${m.file.fn}" aria-label="下载 ${m.file.fn}">${ico('download',16)}</button>
+      </div>` : '';
+      const react = m.reactions?.length ? `<div class="react">${m.reactions.map(r=>`<span aria-label="${r.e} ${r.n} 个反应">${r.e} ${r.n}</span>`).join('')}</div>` : '';
+      return `<div class="msg">${fa}
+        <div class="body">
+          <div class="who"><span class="nm">${w.nm}</span>${ai}<span class="tm">${m.t}</span></div>
+          <div class="txt">${m.txt}</div>${file}${react}
+        </div>
+      </div>`;
+    }).join('')}`;
+}
+
+function miniNetmap() {
+  const w=264, h=118, cx=w/2, cy=h/2;
+  const nodes = AGENTS.map((a,i)=>{
+    const ang = (i/AGENTS.length)*Math.PI*2 - Math.PI/2;
+    return {a, x:cx+Math.cos(ang)*48, y:cy+Math.sin(ang)*36};
+  });
+  const edges = nodes.map(n=>`<line x1="${cx}" y1="${cy}" x2="${n.x}" y2="${n.y}" stroke="#24344a" stroke-width="1" ${n.a.status==='off'?'stroke-dasharray="3 3"':''}/>`).join('');
+  const els = nodes.map(n=>`<g data-agent="${n.a.id}" style="cursor:pointer" role="button" tabindex="0" aria-label="${n.a.nm} · ${SL[n.a.status]}">
+    <image href="${PNG[n.a.tachi]}" x="${n.x-12}" y="${n.y-12}" width="24" height="24" style="image-rendering:pixelated;${n.a.status==='off'?'filter:grayscale(1) opacity(.5);':''}"/>
+    <circle cx="${n.x+9}" cy="${n.y+9}" r="3" fill="${HUE[n.a.status]}"/>
+  </g>`).join('');
+  return `<div class="netmap">
+    <svg viewBox="0 0 ${w} ${h}">
+      ${edges}
+      <image href="${PNG.red}" x="${cx-14}" y="${cy-14}" width="28" height="28" style="image-rendering:pixelated"/>
+      ${els}
+    </svg>
+    <div class="cap"><span>派遣网络图（#17 星系图 · 本机 #34）</span><span>峰值 31</span></div>
+  </div>`;
+}
+
+function seeAll(label) {
+  return `<button class="lnk" title="${label}">${label} ${ico('chevron-right',12)}</button>`;
+}
+
+function renderDetails() {
+  const c = CHANNELS.find(x=>x.id===state.chan);
+  const files = [
+    {fn:'Tachikoma_Launch_Plan_v0.1.pdf', sz:'2.4 MB · Mar 10', c:'#e94560'},
+    {fn:'Market_Research_Summary.pdf',      sz:'1.1 MB · Mar 8',  c:'#58a6ff'},
+  ];
+  details.innerHTML = `
+    <div class="card">
+      <h4>Channel</h4>
+      <div class="ch-id"><span class="hash">#</span><span class="nm">${c.nm}</span></div>
+      <div class="ch-desc">${c.topic||c.nm}</div>
+      <div class="ch-tags"><span>Product</span><span>GTM</span><span>Launch</span></div>
+      <div class="stats">
+        <div class="st"><b>${DMS.length+1}</b><span>Members</span></div>
+        <div class="st"><b>${AGENTS.length}</b><span>Agents</span></div>
+        <div class="st"><b>12</b><span>Files</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <h4>Description <button class="lnk" title="编辑描述" aria-label="编辑描述">${ico('pencil',13)}</button></h4>
+      <div class="ch-desc">Planning, discussion, and execution for our public launch. From strategy to shipped.</div>
+    </div>
+    <div class="card">
+      <h4>Members (${DMS.length+1}) ${seeAll('See all')}</h4>
+      <div class="mrow"><div class="fa" style="background:${avatarTone(0)}">N<span class="dot" title="在线"></span></div><span class="nm">npub1mock…</span><span class="you">You</span></div>
+      ${DMS.map((d,i)=>`<div class="mrow"><div class="fa" style="background:${avatarTone(i)}">${d.nm[0].toUpperCase()}<span class="dot" title="在线"></span></div><span class="nm">${d.nm}</span></div>`).join('')}
+    </div>
+    <div class="card">
+      <h4>Active agents (${AGENTS.filter(a=>a.status!=='off').length}) ${seeAll('See all')}</h4>
+      ${miniNetmap()}
+      ${AGENTS.map(a=>{
+        const dot = a.status==='idle'?'idle':a.status==='off'?'off':'';
+        const lbl = a.pending?'Pending':a.status==='idle'?'Idle':a.status==='off'?'Offline':'Online';
+        return `<div class="arow" data-agent="${a.id}" role="button" tabindex="0" title="${a.nm} · ${SL[a.status]}${a.pending?' · 待确认':''}">
+          ${agentImg(a,28)}
+          <span class="nm">${a.nm}</span>
+          <span class="st">${a.pending?`<i style="background:var(--st-busy)"></i>`:''}<i class="${dot}"></i>${lbl}</span>
+        </div>`;
+      }).join('')}
+    </div>
+    <div class="card">
+      <h4>Pinned (${files.length}) <button class="plus" title="固定文件" aria-label="固定文件">${ico('plus',14)}</button></h4>
+      ${files.map(f=>`<div class="prow">
+        <div class="fi" style="background:${f.c}">PDF</div>
+        <span class="nm">${f.fn}</span><span class="meta">${f.sz}</span>
+      </div>`).join('')}
+    </div>`;
+}
+
+/* 滚动位置保持：重渲染只该把「本来就在底部」的人留在底部，不该把人从历史里拽回来 */
+let stickToBottom = true;
+function renderAll() {
+  const el = document.getElementById('msgs');
+  const gap = el.scrollHeight - el.scrollTop - el.clientHeight;   /* 重渲染前距底部的距离 */
+  renderRail(); renderChatHead(); renderMsgs(); renderDetails();
+  if (stickToBottom) el.scrollTop = el.scrollHeight;
+  else el.scrollTop = Math.max(0, el.scrollHeight - el.clientHeight - gap);
+}
+
+/* ---------- 交互 ---------- */
+document.addEventListener('click', e=>{
+  const c = e.target.closest('[data-chan]');
+  if(c){ state.chan=c.dataset.chan; stickToBottom = true; renderAll(); return; }
+  const ag = e.target.closest('[data-agent]');
+  if(ag){
+    const a = AGENTS.find(x=>x.id===ag.dataset.agent);
+    if(a?.pending && confirm(`「${a.nm}」pending 收集期（#30）。确认开工？`)){ a.pending=false; a.status='easy'; a.pct=6; renderAll(); }
+    return;
+  }
+  if(e.target.closest('#sendBtn')){ doSend(); return; }
+});
+/* 频道行可聚焦：Enter / 空格 与点击同义（键盘可达） */
+document.addEventListener('keydown', e=>{
+  if(e.key!=='Enter' && e.key!==' ') return;
+  const t = e.target.closest('[data-nav]');
+  if(t){ e.preventDefault(); return; }
+  const c = e.target.closest('[data-chan]');
+  if(c){ e.preventDefault(); state.chan=c.dataset.chan; stickToBottom = true; renderAll(); return; }
+  const ag = e.target.closest('[data-agent]');
+  if(ag){ e.preventDefault(); ag.click(); }
+});
+document.getElementById('composerInput').addEventListener('keydown', e=>{ if(e.key==='Enter') doSend(); });
+function doSend(){
+  const inp = document.getElementById('composerInput');
+  const t = inp.value.trim(); if(!t) return;
+  state.msgs.push({who:'me', txt:t, t:new Date().toTimeString().slice(0,5)});
+  inp.value=''; stickToBottom = true; renderAll();
+}
+
+/* 演示：每 4s 漂移一档 + 偶发正式消息（#29） */
+const REPLIES = ['收到，正在处理。','这一步需要 2 分钟，稍等。','已完成，结果已写进 handoff。','遇到歧义，按 emergence-ab.md 第 3 条执行。'];
+let demoTimer = null;
+function startDrift(){
+  if(demoTimer) return;
+  demoTimer = setInterval(()=>{
+    state.tick++;
+    const live = AGENTS.filter(a=>a.status!=='off' && !a.pending);
+    if(live.length){
+      const a = live[Math.floor(Math.random()*live.length)];
+      const i = STATUS.indexOf(a.status);
+      a.status = STATUS[Math.min(STATUS.length-2, Math.max(0, i+(Math.random()<.5?-1:1)))];
+      a.pct = {idle:0,easy:6,busy:14,over:27,blow:43}[a.status] ?? 0;
+      if(Math.random()<.2) state.msgs.push({who:a.id, txt:REPLIES[Math.floor(Math.random()*REPLIES.length)], t:new Date().toTimeString().slice(0,5)});
+    }
+    renderAll();
+  }, 4000);
+}
+/* 窗口不可见时停摆（Electron backgroundThrottling 的同一取舍，见契约 A5） */
+document.addEventListener('visibilitychange', ()=>{
+  if(document.hidden){ clearInterval(demoTimer); demoTimer = null; }
+  else startDrift();
+});
+
+/* 观众自己滚动 = 取消吸底；滚回底部 = 恢复吸底 */
+document.getElementById('msgs').addEventListener('scroll', function(){
+  stickToBottom = this.scrollHeight - this.scrollTop - this.clientHeight < 40;
+}, {passive:true});
+
+startDrift();
+renderAll();
+</script>
+</body>
+</html>

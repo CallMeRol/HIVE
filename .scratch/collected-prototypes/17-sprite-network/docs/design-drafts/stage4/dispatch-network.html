@@ -1,0 +1,1121 @@
+<!-- PROTOTYPE（throwaway）· wayfinder ticket #17 · 派遣网络图的规格仪器
+     三个 variant（?variant=A|B|C）：
+       A · 星系图 + 固定精灵槽 + 五档状态色环（owner 已选为默认：星系图"looks good"）
+       B · 反例：精灵槽尺寸编码状态（用来验证"越累越大 = 越重要"的误读风险，不是候选方案）
+       C · 分层 DAG + 按派遣深度的列布局（可切换回收节点留在原位 / 收进右侧回收栈）
+     节点 = 32×32 方形精灵槽（不是成员表头像位），槽里的塔奇克马是**占位**，不是美术的形象。
+     精灵素材契约：**一个 tag `loop`、12 帧、384×32** 的 atlas；五档差异 = 色环颜色 + 取几帧（6/9/12）+ T÷帧数。
+     这不是产品代码，是拿数字的仪器。规格的最终归宿是 docs/handoff/sprite-and-network-contract.md。 -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>PROTOTYPE · 派遣网络图规格（ticket #17）</title>
+<style>
+  :root{ --bg:#0d1117; --panel:#161b22; --panel2:#1c2230; --line:#2a3140; --line2:#3a4256;
+         --fg:#e6edf3; --dim:#8b949e; --dim2:#6e7681;
+         --ok:#3fb950; --warn:#d29922; --hot:#f0883e; --crit:#f85149; --accent:#58a6ff;
+         --idle:#58a6ff; --recycled:#6e7681; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+       font:14px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+  header{max-width:1480px;margin:0 auto;padding:24px 20px 8px}
+  h1{font-size:19px;margin:0 0 4px}
+  h2{font-size:15px;margin:0 0 4px}
+  h3{font-size:12px;margin:0 0 8px;color:var(--dim);font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+  .sub{color:var(--dim);font-size:12.5px}
+  .proto{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.06em;color:#04101f;
+         background:var(--accent);border-radius:4px;padding:1px 6px;margin-right:8px;vertical-align:2px}
+  main{max-width:1480px;margin:0 auto;padding:0 20px 110px;display:grid;grid-template-columns:minmax(0,1fr) 372px;gap:16px}
+  @media (max-width:1120px){ main{grid-template-columns:1fr} }
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 13px;margin-bottom:14px}
+  .stage{min-width:0}
+  .stage-head{margin-bottom:10px}
+  .stage-head .desc{color:var(--dim);font-size:12.5px}
+  .canvas-wrap{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px}
+  svg{display:block;width:100%;height:auto;max-height:62vh}
+  .tip{position:absolute;z-index:6;display:none;pointer-events:none;max-width:280px;
+       background:var(--panel2);border:1px solid var(--line2);border-radius:8px;padding:8px 10px;
+       font-size:12px;line-height:1.55;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+  .tip b{font-size:12.5px}
+  .tip .kv{color:var(--dim)}
+  .tip .kv i{color:var(--fg);font-style:normal}
+  .legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12px;color:var(--dim);margin:10px 2px 0}
+  .legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px}
+  .legend .ring{border-radius:2px;background:transparent;border:2px solid var(--dim)}
+  .options{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-top:10px;
+           background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:9px 12px;font-size:12.5px}
+  .options label{display:flex;gap:6px;align-items:center;color:var(--dim);cursor:pointer}
+  .options input{accent-color:var(--accent)}
+  .options.drop{border-style:dashed;border-color:var(--line2);cursor:pointer}
+  .options.drop.over{border-color:var(--accent);background:var(--panel2)}
+  pre{margin:0;background:#0b0f14;border:1px solid var(--line);border-radius:8px;padding:10px;
+      font:11.5px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;word-break:break-word;
+      max-height:300px;overflow:auto;color:var(--dim)}
+  pre.md{max-height:420px;color:#c9d1d9}
+  button{background:var(--accent);color:#04101f;border:0;border-radius:7px;padding:6px 12px;
+         font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit}
+  button.ghost{background:var(--panel2);color:var(--fg);border:1px solid var(--line2);font-weight:500}
+  button.ghost[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#04101f;font-weight:700}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
+  .hint{color:var(--dim2);font-size:11.5px;margin-top:7px}
+  .stat{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;margin:9px 0 4px;font-size:12.5px}
+  .stat div{background:#0b0f14;border:1px solid var(--line);border-radius:7px;padding:6px 8px}
+  .stat span{display:block;color:var(--dim2);font-size:11px}
+  .stat b{font-variant-numeric:tabular-nums}
+  input[type=range]{width:100%;accent-color:var(--accent)}
+  .switcher{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:20;
+            display:flex;align-items:center;gap:10px;background:#0b1220;border:1px solid var(--accent);
+            border-radius:999px;padding:7px 12px;box-shadow:0 10px 30px rgba(0,0,0,.55)}
+  .switcher button{background:transparent;color:var(--accent);font-size:16px;padding:2px 10px;border-radius:999px}
+  .switcher button:hover{background:#12233d}
+  .switcher #swLabel{font-size:12.5px;font-weight:600;min-width:250px;text-align:center}
+  .switcher .key{font-size:11px;color:var(--dim2)}
+  .hidden{display:none !important}
+  /* ---- 图内元素 ---- */
+  .edge{fill:none;stroke:var(--line2);stroke-width:1.6}
+  .edge.recycled{stroke-dasharray:4 4}
+  .edge.dim{opacity:.28}
+  .edge.active{stroke:var(--accent);stroke-width:2.6;opacity:1}
+  .ring{fill:none;stroke:#21262d;stroke-dasharray:2 6}
+  .ring-label,.col-label{fill:var(--dim2);font-size:10px}
+  .node{cursor:pointer}
+  .node text{pointer-events:none;font-family:inherit}
+  .node .nm{fill:var(--dim);font-size:10px}
+  .node .sub{fill:var(--dim2);font-size:9.5px}
+  .node.dim{opacity:.32}
+  .node .hit{fill:transparent}
+  rect.slot{transition:none}
+  .pulse-t{animation:pulseT 1.2s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
+  @keyframes pulseT{50%{transform:scale(1.12)}}
+</style>
+</head>
+<body>
+<header>
+  <h1><span class="proto">PROTOTYPE</span>派遣网络图规格仪器 · wayfinder ticket #17</h1>
+  <div class="sub">它要定的不是"好不好看"，是三个数：<b>槽位尺寸的编码方式</b>、<b>布局语义</b>、<b>回收节点放哪</b>；
+    以及一件更根本的事：<b>精灵住在图节点上，而不是成员表的头像位</b>。
+    切换 variant（底部条 / ← → 键）→ 右侧"契约片段"会跟着生成可复制的规格 Markdown。数据是假的，形态是真的。</div>
+</header>
+
+<main>
+  <section class="stage">
+    <div class="stage-head">
+      <h2 id="vTitle">—</h2>
+      <div class="desc" id="vDesc"></div>
+    </div>
+    <div class="canvas-wrap" id="canvasWrap">
+      <svg id="net" role="img" aria-label="派遣网络图"></svg>
+      <div class="tip" id="tip"></div>
+    </div>
+    <div class="options drop" id="assetRow">
+      <span style="color:var(--dim2)">精灵素材：</span>
+      <button class="ghost" id="pickBtn">选择 atlas.png（可同时选 atlas.json）</button>
+      <button class="ghost" id="resetSprite">用占位塔奇克马</button>
+      <span class="hint" style="margin:0" id="assetInfo">当前：占位塔奇克马 —— <b>不是美术的形象</b>，只用来验证槽位与状态色的关系</span>
+    </div>
+    <input type="file" id="filePng" accept="image/png,image/webp" multiple style="display:none">
+    <div class="legend" id="legend"></div>
+    <div class="options" id="options"></div>
+  </section>
+
+  <aside class="side">
+    <div class="card">
+      <h3>当前 variant 的完整规格</h3>
+      <pre id="specJson">{}</pre>
+      <div class="hint">切换 variant 或改选项时，这里渲染完整状态。</div>
+    </div>
+
+    <div class="card">
+      <h3>契约片段（可直接粘进契约文档）</h3>
+      <div class="row">
+        <button id="copyBtn">复制 Markdown</button>
+        <span class="hint" id="copyHint"></span>
+      </div>
+      <pre class="md" id="contractMd"></pre>
+    </div>
+
+    <div class="card">
+      <h3>压力测试（为"安全动画上限"取证据）</h3>
+      <div class="row">
+        <button class="ghost" data-load="9">重置 9 节点</button>
+        <button class="ghost" data-load="10">×10</button>
+        <button class="ghost" data-load="30">×30</button>
+      </div>
+      <div class="row" id="animRow">
+        <span style="color:var(--dim2);font-size:11.5px;align-self:center">动画：</span>
+        <button class="ghost" data-anim="off">关</button>
+        <button class="ghost" data-anim="transform">transform 脉冲（合成器候选）</button>
+        <button class="ghost" data-anim="paint">描边脉冲（主线程重绘）</button>
+      </div>
+      <label style="font-size:12.5px;color:var(--dim);display:block">主线程加压：<b id="loadVal">0</b> ms/帧
+        <input type="range" id="load" min="0" max="20" step="2" value="0">
+      </label>
+      <div class="stat">
+        <div><span>实测 FPS</span><b id="fps">—</b></div>
+        <div><span>最差帧</span><b id="worst">—</b></div>
+        <div><span>掉帧（&gt;25ms）</span><b id="dropped">—</b></div>
+        <div><span>样本数</span><b id="samples">0</b></div>
+        <div><span>节点数</span><b id="nodeCount">9</b></div>
+      </div>
+      <div class="hint">这个计数器测的是**主线程帧交付率**：`描边脉冲` 的掉帧会直接表现为画面掉帧；`transform 脉冲` 不一定——主线程被拖住时合成器仍可能平滑推进，这正是要区分的点。另外，后台/headless 窗口下浏览器会节流 rAF（本机 headless 实测基线仅 ~13fps），**数字只在真实前台窗口里可比**。</div>
+      <div class="row"><button id="recordBtn">记录这组数字</button><span class="hint" id="recHint"></span></div>
+      <div class="hint" id="animWhy"></div>
+    </div>
+
+    <div class="card hidden" id="readCard">
+      <h3>读图测试（variant B 专用）</h3>
+      <div style="font-size:12.5px;color:var(--dim);margin-bottom:8px">
+        只看节点<b>大小</b>，不看颜色：下面哪一个 agent 看起来最忙 / 最重要？
+      </div>
+      <div class="row" id="readChoices"></div>
+      <button class="ghost" id="readReveal">看答案</button>
+      <div class="hint hidden" id="readAnswer"></div>
+    </div>
+  </aside>
+</main>
+
+<div class="switcher">
+  <button id="prev" title="上一个 variant（←）">←</button>
+  <span id="swLabel">A</span>
+  <span class="key">← → 切换</span>
+  <button id="next" title="下一个 variant（→）">→</button>
+</div>
+
+<script>
+"use strict";
+/* ============================ 0. 常量与数据模型 ============================ */
+
+/* 五档状态色（owner 口径）：idle 蓝 = 空闲／没有在跑的会话／**拿不到占用数据**；
+   其余四档由上下文窗口占用百分比推导。色环 hex 是契约硬约束。 */
+const STATES = [
+  { key:'idle',      label:'空闲',     color:'#58a6ff', tier:false, note:'没有在跑的会话 / 未拿到占用数据' },
+  { key:'easy',      label:'轻松',     color:'#3fb950', tier:true,  max:10 },
+  { key:'tired',     label:'累了',     color:'#d29922', tier:true,  max:20 },
+  { key:'exhausted', label:'超累',     color:'#f0883e', tier:true,  max:40 },
+  { key:'critical',  label:'要累死了', color:'#f85149', tier:true,  max:Infinity }
+];
+const TIERS = STATES.filter(s => s.tier);
+const RECYCLED_COLOR = '#6e7681';
+const WINDOW_LABEL = '1M';          // 上下文窗口大小必须记录（#9 决议）
+
+/* ---- 精灵槽与循环（契约 A2/A3 的硬数字） ---- */
+const SLOT_BASE = 32;               // 精灵槽：母版 32×32；方槽圆角 4；卡片 64 = 整数 2×
+const SLOT_RX = 4;
+const SLOT_BY_STATE = { idle:24, easy:28, tired:32, exhausted:40, critical:48 };  // 仅 variant B（反例）
+const RING_GAP = 2;                 // 色环**外扩** 2px
+const RING_WIDTH = 2;               // 色环 2px 宽
+const PERIOD_MS = 1200;             // 循环周期 T = 1.2s（所有档位共用）
+const CLOCK_MS = PERIOD_MS / 36;    // 公共时钟 T/36 ≈ 33.3ms（6/9/12 都整除 36）
+const LOOP_FRAMES = 12;             // 美术交付：一个 tag `loop`、12 帧、384×32
+const LOOP_TAG = 'loop';            // 契约固定的唯一 tag 名（P1 可选 blink）
+const FRAME_PLAN = { idle:6, easy:6, tired:9, exhausted:9, critical:12 };  // 各档取几帧
+
+/* 从 12 帧里按档位取子集：能整除就等距（6 = 每隔一帧），否则按最近邻取 */
+function frameIndicesFor(loopCount, want){
+  if (want >= loopCount) return Array.from({ length: loopCount }, (_, i) => i);
+  if (loopCount % want === 0) return Array.from({ length: want }, (_, i) => i * (loopCount / want));
+  return Array.from({ length: want }, (_, i) => Math.round(i * (loopCount - 1) / (want - 1)));
+}
+
+function stateKeyOf(n){
+  if (n.pct === null || n.pct === undefined) return 'idle';
+  const t = TIERS.find(t => n.pct < t.max);
+  return (t || TIERS[TIERS.length - 1]).key;
+}
+const stateMetaOf = n => STATES.find(s => s.key === stateKeyOf(n)) || STATES[0];
+const colorOf = n => (n.kind === 'recycled' ? RECYCLED_COLOR : stateMetaOf(n).color);
+const isRecycled = n => n.kind === 'recycled';
+const slotSizeOf = n => (state.variant === 'B' ? SLOT_BY_STATE[stateKeyOf(n)] || SLOT_BASE : SLOT_BASE);
+
+const TASKS = [
+  '重构 auth 中间件', '调研 EasyTier 打洞', '改前端按钮颜色', '跑 sprite 帧率基准',
+  '截图核对屋顶形制', '整理交接文档目录', '翻上周的对话记录', '写 e2e 测试',
+  '核实 teahouse 补丁位', '改群成员列表行高'
+];
+
+/* 真实感 fixture：3 常驻成员 + 4 派遣成员 + 2 回收，含一条深度 2 的链（c1 → d1 → d3 / r2）。
+   c3 故意 pct=null：代表"没有在跑的会话 / 未拿到占用数据"→ idle 蓝。 */
+const FIXTURE = [
+  { id:'c1', name:'Claude-阿罗',   kind:'resident',   pct:7,    task:'重构 auth 中间件',     parentId:null, dispatchedAt:'10:02' },
+  { id:'c2', name:'Codex-小美',    kind:'resident',   pct:16,   task:'写 e2e 测试',          parentId:null, dispatchedAt:'10:05' },
+  { id:'c3', name:'pi-老陈',       kind:'resident',   pct:null, task:'—（暂无会话目标）',    parentId:null, dispatchedAt:'09:58' },
+  { id:'d1', name:'派遣·查资料',   kind:'dispatched', pct:26,   task:'调研 EasyTier 打洞',   parentId:'c1', dispatchedAt:'10:06' },
+  { id:'d2', name:'派遣·改按钮',   kind:'dispatched', pct:47,   task:'改前端按钮颜色',       parentId:'c1', dispatchedAt:'10:14' },
+  { id:'d3', name:'派遣·跑基准',   kind:'dispatched', pct:12,   task:'跑 sprite 帧率基准',   parentId:'d1', dispatchedAt:'10:18' },
+  { id:'d4', name:'派遣·截图核对', kind:'dispatched', pct:9,    task:'截图核对屋顶形制',     parentId:'c2', dispatchedAt:'10:20' },
+  { id:'r1', name:'派遣·整目录',   kind:'recycled',   pct:63,   task:'整理交接文档目录',     parentId:'c1', dispatchedAt:'10:08', recycledAt:'10:12' },
+  { id:'r2', name:'派遣·翻旧账',   kind:'recycled',   pct:22,   task:'翻上周的对话记录',     parentId:'d1', dispatchedAt:'10:09', recycledAt:'10:13' }
+];
+
+function withDepth(list){
+  const byId = {};
+  list.forEach(n => { byId[n.id] = n; });
+  list.forEach(n => {
+    let d = 0, p = n.parentId, seen = { };
+    seen[n.id] = true;
+    while (p && byId[p] && !seen[p]) { seen[p] = true; d++; p = byId[p].parentId; }
+    n.depth = d;
+  });
+  return list;
+}
+
+function mulberry32(a){
+  return function(){
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+// 程序生成压力测试数据（确定性，同参数同结果）；~15% 的节点是 idle（无数据）
+function makeNodes(target){
+  if (target <= 9) return withDepth(FIXTURE.map(n => Object.assign({}, n)));
+  const rnd = mulberry32(20260922 + target);
+  const residents  = Math.max(2, Math.round(target * 0.22));
+  const recycled   = Math.max(1, Math.round(target * 0.18));
+  const dispatched = Math.max(1, target - residents - recycled);
+  const list = [];
+  const pad = i => String(i).padStart(2, '0');
+  const pctOrNull = () => (rnd() < 0.15 ? null : Math.round(rnd()*60));
+  for (let i = 0; i < residents; i++){
+    list.push({ id:'R'+i, name:'常驻-'+pad(i+1), kind:'resident', pct:pctOrNull(),
+                task:TASKS[i % TASKS.length], parentId:null, dispatchedAt:'10:'+pad(i) });
+  }
+  for (let i = 0; i < dispatched; i++){
+    const parent = (i < dispatched * 0.55)
+      ? list[i % residents]
+      : (list.filter(n => n.kind === 'dispatched')[0] || list[0]);
+    list.push({ id:'D'+i, name:'派遣-'+pad(i+1), kind:'dispatched', pct:pctOrNull(),
+                task:TASKS[(i+3) % TASKS.length], parentId:parent.id, dispatchedAt:'10:'+pad(10+i) });
+  }
+  for (let i = 0; i < recycled; i++){
+    const pool = list.filter(n => n.kind === 'dispatched');
+    const parent = (i % 2 === 0) ? list[i % residents] : (pool[i % Math.max(1, pool.length)] || list[0]);
+    list.push({ id:'X'+i, name:'派遣·回收'+pad(i+1), kind:'recycled', pct:Math.round(rnd()*70),
+                task:TASKS[(i+1) % TASKS.length], parentId:parent.id,
+                dispatchedAt:'10:05', recycledAt:'10:'+pad(20+i) });
+  }
+  return withDepth(list);
+}
+
+/* ============================ 1. 三个 variant 的规格 ============================ */
+
+const VARIANTS = {
+  A: { key:'A', short:'A · 星系图（固定槽位 32）', name:'星系图 · 固定槽位尺寸 + 五档状态色',
+       title:'variant A · 星系图 · 槽位恒为 32×32，状态只由色环/底色表达',
+       desc:'中心-辐条：深度 0（常驻成员）在内环，深度 1/2（派遣成员）逐层向外。节点是 32×32 方形精灵槽，槽里的塔奇克马是占位；半径/尺寸恒为 32，状态差异只走色环 → 不存在"越累越大"的大小干扰。',
+       layout:'radial', size:{ rule:'fixed', value:SLOT_BASE },
+       stateEncoding:['ring-color','slot-tint'],
+       edges:{ type:'straight', width:1.6, activeWidth:2.6, recycledDash:'4 4' },
+       recycled:'inline-desaturated',
+       budget:'建议同屏 ≤ 12 节点（超出后名字标签开始压叠，见压力测试 ×30）' },
+  B: { key:'B', short:'B · 反例（槽位编码状态）', name:'反例 · 槽位尺寸编码状态',
+       title:'variant B · 反例：槽位尺寸编码状态 —— 检验"越累越大 = 越重要"的误读',
+       desc:'同布局，但槽位尺寸随状态放大（24 / 28 / 32 / 40 / 48）。风险直接可见：最累的槽位看起来最大，容易被读成"最重要/产出最多"。右侧"读图测试"就是量这个。**契约已定：尺寸固定，不编码状态**；这个 variant 是那条决定的证据，不是候选方案。',
+       layout:'radial', size:{ rule:'by-state', map:SLOT_BY_STATE },
+       stateEncoding:['ring-color','slot-tint','slot-size'],
+       edges:{ type:'straight', width:1.6, activeWidth:2.6, recycledDash:'4 4' },
+       recycled:'inline-desaturated',
+       budget:'尺寸编码 + 大槽位时会互相顶到（×30 时尤其明显），建议同屏 ≤ 10 节点' },
+  C: { key:'C', short:'C · 分层 DAG（按深度成列）', name:'分层 DAG · 按深度成列',
+       title:'variant C · 分层 DAG · 按派遣深度成列，回收栈可切换（对照方案）',
+       desc:'深度 = 列（深度 0 / 1 / 2），边是贝塞尔 + 箭头，读的是"一个任务怎么流过几个成员"。回收节点默认去饱和留在原位，可切到右侧独立"回收栈"。节点同样是 32×32 方形精灵槽。',
+       layout:'layered-dag', size:{ rule:'fixed', value:SLOT_BASE },
+       stateEncoding:['ring-color','slot-tint'],
+       edges:{ type:'bezier-arrow', width:1.6, activeWidth:2.6, recycledDash:'4 4' },
+       recycled:'inline-desaturated',
+       budget:'列布局在 20+ 节点开始出现交叉线；回收栈能救回一部分可读性' }
+};
+
+const ORDER = ['A', 'B', 'C'];
+
+/* ============================ 2. 状态 ============================ */
+
+const state = {
+  variant: 'A',
+  nodes: makeNodes(9),
+  selectedId: null,
+  recycleStack: false,   // 仅 variant C 生效
+  anim: 'off',
+  load: 0,
+  measurements: [],      // {nodes, anim, load, fps, worst, dropped}
+  atlas: null,           // {url, imgW, imgH, loop:[{x,y,w,h}...], source}
+  reducedMotion: !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)
+};
+
+/* ============================ 3. 布局 ============================ */
+
+function halfOf(n){ return slotSizeOf(n) / 2; }
+
+// 星系图：深度决定半径，子节点角度跟随父节点
+function layoutRadial(nodes){
+  const maxDepth = Math.max.apply(null, nodes.map(n => n.depth));
+  const byDepth = [];
+  nodes.forEach(n => { (byDepth[n.depth] = byDepth[n.depth] || []).push(n); });
+  byDepth[0].sort((a,b) => a.id < b.id ? -1 : 1);
+  byDepth[0].forEach((n,i) => { n.angle = i * 2 * Math.PI / byDepth[0].length - Math.PI/2; });
+
+  for (let d = 1; d <= maxDepth; d++){
+    const kids = (byDepth[d] || []).slice().sort((a,b) => a.id < b.id ? -1 : 1);
+    const groups = {};
+    kids.forEach(k => { (groups[k.parentId] = groups[k.parentId] || []).push(k); });
+    Object.keys(groups).forEach(pid => {
+      const parent = nodes.filter(n => n.id === pid)[0];
+      const base = parent && typeof parent.angle === 'number' ? parent.angle : 0;
+      const g = groups[pid];
+      g.forEach((k,j) => { k.angle = base + (j - (g.length-1)/2) * 0.5; });
+    });
+    const orphans = kids.filter(k => typeof k.angle !== 'number');
+    orphans.forEach((k,i) => { k.angle = i * 2 * Math.PI / Math.max(1, orphans.length); });
+  }
+
+  nodes.forEach(n => {
+    n.r = halfOf(n);
+    const ringR = 96 + n.depth * 104;
+    n.x = ringR * Math.cos(n.angle);
+    n.y = ringR * Math.sin(n.angle);
+  });
+
+  const rings = [];
+  for (let d = 1; d <= maxDepth; d++) rings.push({ r: 96 + d * 104, label: '深度 ' + d +
+    (d === 1 ? '（派遣成员）' : ''), x: -(96 + d * 104) + 10, y: -8 });
+
+  // viewBox 必须把环也框进来，否则图会偏心 + 标签被裁
+  const re = 96 + maxDepth * 104;
+  const virtual = [ { x:-re, y:-re, r:0 }, { x:re, y:re, r:0 }, { x:-re, y:re, r:0 }, { x:re, y:-re, r:0 } ];
+  return { nodes: nodes, rings: rings, headers: [], bounds: padBounds(nodes.concat(virtual), 34, 40) };
+}
+
+// 分层 DAG：深度决定列，回收栈可选
+function layoutLayered(nodes, useStack){
+  const maxDepth = Math.max.apply(null, nodes.map(n => n.depth));
+  const colX = d => 96 + d * 200;
+  const stackX = colX(maxDepth + 1);
+  const rowGap = 78, top = 92;
+
+  const cols = {};
+  nodes.forEach(n => {
+    const key = (useStack && isRecycled(n)) ? 'R' : String(n.depth);
+    (cols[key] = cols[key] || []).push(n);
+  });
+
+  const orderIndex = {};
+  for (let d = 0; d <= maxDepth; d++){
+    const col = (cols[String(d)] || []);
+    col.sort((a,b) => {
+      const pa = orderIndex[a.parentId];
+      const pb = orderIndex[b.parentId];
+      const ka = (pa === undefined ? -1 : pa) * 1000 + (a.name < b.name ? 0 : 1);
+      const kb = (pb === undefined ? -1 : pb) * 1000 + (b.name < a.name ? 0 : 1);
+      return ka - kb || (a.id < b.id ? -1 : 1);
+    });
+    col.forEach((n,i) => { orderIndex[n.id] = i; n.colIndex = i; n.x = colX(d); });
+  }
+  if (cols.R){
+    cols.R.sort((a,b) => (orderIndex[a.parentId] || 0) - (orderIndex[b.parentId] || 0));
+    cols.R.forEach((n,i) => { n.colIndex = i; n.x = stackX; });
+  }
+
+  nodes.forEach(n => { n.r = halfOf(n); n.y = top + (n.colIndex || 0) * rowGap + 30; });
+
+  const headers = [];
+  for (let d = 0; d <= maxDepth; d++){
+    headers.push({ x: colX(d), y: 56, text: '深度 ' + d + (d === 0 ? ' · 常驻成员' : ' · 派遣成员') });
+  }
+  if (cols.R) headers.push({ x: stackX, y: 56, text: '回收 · 已退群' });
+
+  return { nodes: nodes, rings: [], headers: headers,
+           bounds: padBounds(nodes.concat(headers.map(h => ({ x:h.x, y:h.y }))), 96, 60) };
+}
+
+function padBounds(nodes, padX, padY){
+  if (!nodes.length) return { x:-100, y:-100, w:400, h:300 };
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  nodes.forEach(n => {
+    minX = Math.min(minX, n.x - (n.r || 16));
+    maxX = Math.max(maxX, n.x + (n.r || 16));
+    minY = Math.min(minY, n.y - (n.r || 16));
+    maxY = Math.max(maxY, n.y + (n.r || 16));
+  });
+  return { x: minX - padX, y: minY - padY, w: (maxX - minX) + padX*2, h: (maxY - minY) + padY*2 };
+}
+
+/* ============================ 4. 选择 / 链 ============================ */
+
+function chainOf(id){
+  const byId = {};
+  state.nodes.forEach(n => { byId[n.id] = n; });
+  const out = {}, chain = [];
+  let cur = byId[id];
+  while (cur && !out[cur.id]){ out[cur.id] = true; chain.push(cur.id); cur = byId[cur.parentId]; }
+  return { set: out, list: chain };
+}
+
+/* ============================ 5. 精灵槽（占位塔奇克马 / 美术素材） ============================ */
+
+/* 占位 atlas：就地画一个 12 帧呼吸循环的塔奇克马，横向排成 384×32 ——
+   和美术要交的东西**同构**（一个 tag、12 帧、一行），所以占位档也能验证整套取帧机制。
+   **不是美术的形象**。帧间差异只有呼吸位移（contract A3：只做循环小动）。 */
+function buildPlaceholderAtlas(){
+  const FW = 32, N = LOOP_FRAMES;
+  const cv = document.createElement('canvas');
+  cv.width = FW * N; cv.height = 32;
+  const g = cv.getContext('2d');
+  g.imageSmoothingEnabled = false;
+  const body = '#7d8590', dark = '#0d1117', lens = '#58a6ff';
+  for (let i = 0; i < N; i++){
+    const ox = i * FW;
+    const bob = Math.round(Math.sin(2 * Math.PI * i / N) * 2);   // -2 … +2
+    const bodyRect = (x, y, w, h) => { g.fillStyle = body; g.fillRect(ox + x, y + bob, w, h); };
+    const darkRect = (x, y, w, h) => { g.fillStyle = dark; g.fillRect(ox + x, y + bob, w, h); };
+    // 天线
+    bodyRect(15, 4, 2, 3); bodyRect(14, 3, 4, 2);
+    // 眼带 + 两只镜头
+    darkRect(6, 10, 20, 5);
+    g.fillStyle = lens; g.fillRect(ox + 9, 11 + bob, 3, 3); g.fillRect(ox + 20, 11 + bob, 3, 3);
+    // 身
+    bodyRect(8, 15, 16, 2); bodyRect(7, 17, 18, 8); bodyRect(9, 25, 14, 1);
+    // 腿（不跟着呼吸：脚踩在地上）
+    g.fillStyle = body;
+    g.fillRect(ox + 9, 26, 2, 5); g.fillRect(ox + 15, 26, 2, 5); g.fillRect(ox + 21, 26, 2, 5);
+  }
+  return { url: cv.toDataURL('image/png'), imgW: cv.width, imgH: cv.height };
+}
+
+function setPlaceholderAtlas(){
+  const a = buildPlaceholderAtlas();
+  state.atlas = {
+    url: a.url, imgW: a.imgW, imgH: a.imgH, source: '占位塔奇克马',
+    loop: Array.from({ length: LOOP_FRAMES }, (_, i) => ({ x: i * 32, y: 0, w: 32, h: 32 }))
+  };
+  setAssetInfo('当前：<b>占位塔奇克马</b>（一个 tag <code>loop</code>、12 帧、384×32）—— <b>不是美术的形象</b>，只用来验证槽位 / 色环 / 取帧数');
+}
+
+const loopFrames = () => (state.atlas && state.atlas.loop && state.atlas.loop.length) ? state.atlas.loop : null;
+
+function framesOfState(n){
+  const frames = loopFrames();
+  if (!frames) return [];
+  return frameIndicesFor(frames.length, FRAME_PLAN[stateKeyOf(n)] || 6)
+    .map(i => frames[i]).filter(Boolean);
+}
+
+/* 槽里的精灵：<image> 在一张 atlas 上平移到当前帧。初始给该档的首帧；后续由 rAF 时钟推进。 */
+function spriteInner(n){
+  const subset = framesOfState(n);
+  const a = state.atlas;
+  if (!subset.length || !a) return '';
+  const f = subset[0];
+  return '<image class="sprite-img" data-node="' + n.id + '" href="' + a.url + '" x="' + (-f.x) +
+         '" y="' + (-f.y) + '" width="' + a.imgW + '" height="' + a.imgH +
+         '" preserveAspectRatio="none"' + (isRecycled(n) ? ' filter="url(#desat)"' : '') +
+         ' style="image-rendering:pixelated"/>';
+}
+
+/* 一个节点 = 一个方形精灵槽：槽底 + 状态色底纹 + **外扩 2px 的 2px 色环** + 精灵 */
+function slotSvg(n){
+  const size = slotSizeOf(n), half = size / 2;
+  const color = colorOf(n), rec = isRecycled(n);
+  const dash = n.kind === 'dispatched' ? ' stroke-dasharray="4 3"' : '';
+  const op = rec ? 0.55 : 1;
+  const x = (n.x - half).toFixed(1), y = (n.y - half).toFixed(1);
+  const ringX = (n.x - half - RING_GAP).toFixed(1), ringY = (n.y - half - RING_GAP).toFixed(1);
+  const ringS = size + RING_GAP * 2;
+  let out = '';
+  out += '<rect class="slot-bg" x="' + x + '" y="' + y + '" width="' + size + '" height="' + size +
+         '" rx="' + SLOT_RX + '" fill="#0b0f14" opacity="' + op + '"/>';
+  out += '<rect class="slot-tint" x="' + x + '" y="' + y + '" width="' + size + '" height="' + size +
+         '" rx="' + SLOT_RX + '" fill="' + color + '" fill-opacity="' + (rec ? 0.06 : 0.12) +
+         '" opacity="' + op + '"/>';
+  out += '<rect class="slot-ring" x="' + ringX + '" y="' + ringY + '" width="' + ringS + '" height="' + ringS +
+         '" rx="' + (SLOT_RX + 2) + '" fill="none" stroke="' + color + '" stroke-width="' + RING_WIDTH +
+         '"' + dash + ' opacity="' + op + '"/>';
+  out += '<svg x="' + x + '" y="' + y + '" width="' + size + '" height="' + size +
+         '" viewBox="0 0 32 32" preserveAspectRatio="xMidYMid meet">' + spriteInner(n) + '</svg>';
+  return out;
+}
+
+/* ============================ 6. 渲染 SVG ============================ */
+
+const svgEl = document.getElementById('net');
+const tipEl = document.getElementById('tip');
+const wrapEl = document.getElementById('canvasWrap');
+const nodeCountEl = document.getElementById('nodeCount');
+let spritePlan = [];   // [{el, frames:[{x,y}...], last}] —— 由公共时钟推进
+
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+/* 名字由会话目标派生（角色名），取尾段一两个字做标签；精灵不占头像位，所以这里只是文字 */
+function shortLabel(name, size){
+  const parts = String(name).split(/[-·]/);
+  const tail = parts.length > 1 ? parts[parts.length - 1] : String(name);
+  return tail.slice(0, size >= 40 ? 3 : 2);
+}
+
+function edgePath(a, b, type){
+  const dx = b.x - a.x, dy = b.y - a.y;
+  const len = Math.max(1, Math.sqrt(dx*dx + dy*dy));
+  const ux = dx/len, uy = dy/len;
+  const x1 = a.x + ux * (a.r + 2), y1 = a.y + uy * (a.r + 2);
+  const x2 = b.x - ux * (b.r + 6), y2 = b.y - uy * (b.r + 6);
+  if (type === 'bezier-arrow'){
+    const mx = (x1 + x2) / 2;
+    return 'M' + x1.toFixed(1) + ',' + y1.toFixed(1) + ' C' + mx.toFixed(1) + ',' + y1.toFixed(1) + ' ' +
+           mx.toFixed(1) + ',' + y2.toFixed(1) + ' ' + x2.toFixed(1) + ',' + y2.toFixed(1);
+  }
+  return 'M' + x1.toFixed(1) + ',' + y1.toFixed(1) + ' L' + x2.toFixed(1) + ',' + y2.toFixed(1);
+}
+
+function render(){
+  const v = VARIANTS[state.variant];
+  const L = (v.layout === 'layered-dag')
+    ? layoutLayered(state.nodes, state.recycleStack)
+    : layoutRadial(state.nodes);
+  const b = L.bounds;
+  const chain = state.selectedId ? chainOf(state.selectedId) : null;
+  const byId = {};
+  state.nodes.forEach(n => { byId[n.id] = n; });
+
+  const defs = '<defs>' +
+    '<marker id="ar" viewBox="0 0 8 8" refX="6.5" refY="4" markerWidth="7" markerHeight="7" orient="auto">' +
+      '<path d="M0,0 L8,4 L0,8 z" fill="#3a4256"/></marker>' +
+    '<marker id="ar-hot" viewBox="0 0 8 8" refX="6.5" refY="4" markerWidth="7" markerHeight="7" orient="auto">' +
+      '<path d="M0,0 L8,4 L0,8 z" fill="#58a6ff"/></marker>' +
+    '<filter id="desat"><feColorMatrix type="saturate" values="0.15"/></filter>' +
+    '</defs>';
+
+  let out = defs;
+
+  L.rings.forEach(rg => {
+    out += '<circle class="ring" cx="0" cy="0" r="' + rg.r + '"/>';
+    out += '<text class="ring-label" x="' + rg.x + '" y="' + rg.y + '" text-anchor="start">' + rg.label + '</text>';
+  });
+  L.headers.forEach(h => {
+    out += '<text class="col-label" x="' + h.x + '" y="' + h.y + '" text-anchor="middle">' + esc(h.text) + '</text>';
+  });
+
+  // 边
+  state.nodes.forEach(n => {
+    const p = byId[n.parentId];
+    if (!p) return;
+    const inChain = chain ? (chain.set[n.id] && chain.set[p.id]) : false;
+    const cls = ['edge'];
+    if (isRecycled(n) || isRecycled(p)) cls.push('recycled');
+    if (chain) cls.push(inChain ? 'active' : 'dim');
+    const marker = (v.edges.type === 'bezier-arrow')
+      ? ' marker-end="url(#' + (inChain ? 'ar-hot' : 'ar') + ')"' : '';
+    out += '<path class="' + cls.join(' ') + '" d="' + edgePath(p, n, v.edges.type) + '"' + marker + '/>';
+  });
+
+  // 节点（精灵槽）
+  L.nodes.forEach(n => {
+    const size = slotSizeOf(n), half = size/2;
+    const cls = ['node'];
+    if (chain && !chain.set[n.id]) cls.push('dim');
+    out += '<g class="' + cls.join(' ') + '" data-id="' + n.id + '">';
+    if (n.id === state.selectedId){
+      out += '<rect x="' + (n.x-half-6).toFixed(1) + '" y="' + (n.y-half-6).toFixed(1) +
+             '" width="' + (size+12) + '" height="' + (size+12) + '" rx="8" fill="none" stroke="' +
+             '#58a6ff" stroke-width="2"/>';
+    }
+    out += '<circle class="hit" cx="' + n.x + '" cy="' + n.y + '" r="' + (half + 10) + '"/>';
+    out += slotSvg(n);
+    out += '<text class="nm" x="' + n.x + '" y="' + (n.y + half + 13) + '" text-anchor="middle" opacity="' +
+           (isRecycled(n) ? 0.65 : 1) + '">' + esc(n.name) + '</text>';
+    if (isRecycled(n)){
+      out += '<text class="sub" x="' + n.x + '" y="' + (n.y + half + 25) + '" text-anchor="middle">退群 ' +
+             esc(n.recycledAt || '—') + '</text>';
+    }
+    out += '</g>';
+  });
+
+  svgEl.setAttribute('viewBox', b.x.toFixed(1) + ' ' + b.y.toFixed(1) + ' ' + b.w.toFixed(1) + ' ' + b.h.toFixed(1));
+  svgEl.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+  svgEl.innerHTML = out;
+  if (state.anim === 'transform'){
+    svgEl.querySelectorAll('g.node').forEach(g => g.classList.add('pulse-t'));
+  } else {
+    svgEl.querySelectorAll('rect.slot-ring').forEach(r => { delete r.__b; });
+  }
+  // 精灵循环计划：所有节点共享周期 T，各档取帧数不同（相位在每个 T 对齐）
+  spritePlan = [];
+  L.nodes.forEach(n => {
+    if (isRecycled(n)) return;            // 回收 = 进程已结束 → 循环冻在第 0 帧
+    const el = svgEl.querySelector('image[data-node="' + n.id + '"]');
+    const frames = framesOfState(n);
+    if (el && frames.length) spritePlan.push({ el: el, frames: frames, last: -1 });
+  });
+  nodeCountEl.textContent = String(state.nodes.length);
+}
+
+/* ============================ 7. tooltip / 交互 ============================ */
+
+function tipHtml(n){
+  const st = stateMetaOf(n);
+  const parent = state.nodes.filter(x => x.id === n.parentId)[0];
+  const occ = (n.pct === null || n.pct === undefined)
+    ? st.label + '（没有在跑的会话 / 未拿到占用数据）'
+    : st.label + '（' + n.pct + '% · 上下文窗口 ' + WINDOW_LABEL + '）';
+  const subset = framesOfState(n);
+  const perFrame = subset.length ? (PERIOD_MS / subset.length) : 0;
+  const loopLine = '取 ' + (subset.length || 0) + ' / ' + LOOP_FRAMES + ' 帧 · 周期 T = ' +
+    (PERIOD_MS / 1000).toFixed(1) + 's · 每帧 ' + perFrame.toFixed(1) + 'ms' +
+    (isRecycled(n) ? '（已冻在第 0 帧）' : '');
+  const rows = [
+    ['状态', occ],
+    ['循环', loopLine],
+    ['当前任务', n.task],
+    ['派遣者', parent ? parent.name : '—（群成员根节点）'],
+    ['派遣深度', String(n.depth)],
+    ['派遣于', n.dispatchedAt]
+  ];
+  if (isRecycled(n)) rows.push(['退群', (n.recycledAt || '—') + '（已退群，进程退出）']);
+  const kindLabel = n.kind === 'resident' ? '常驻成员' : (n.kind === 'dispatched' ? '派遣成员' : '回收（已退群）');
+  return '<b>' + esc(n.name) + '</b> <span class="kv">· ' + kindLabel + '</span><br>' +
+    rows.map(r => '<span class="kv">' + r[0] + '：</span><i>' + esc(r[1]) + '</i>').join('<br>');
+}
+
+svgEl.addEventListener('mousemove', e => {
+  const g = e.target.closest ? e.target.closest('.node') : null;
+  if (!g){ tipEl.style.display = 'none'; return; }
+  const n = state.nodes.filter(x => x.id === g.getAttribute('data-id'))[0];
+  if (!n){ tipEl.style.display = 'none'; return; }
+  tipEl.innerHTML = tipHtml(n);
+  tipEl.style.display = 'block';
+  const wrap = wrapEl.getBoundingClientRect();
+  let left = e.clientX - wrap.left + 14;
+  const w = tipEl.offsetWidth;
+  if (left + w > wrap.width - 6) left = Math.max(6, e.clientX - wrap.left - w - 14);
+  tipEl.style.left = left + 'px';
+  tipEl.style.top = Math.max(6, e.clientY - wrap.top - 12) + 'px';
+});
+svgEl.addEventListener('mouseleave', () => { tipEl.style.display = 'none'; });
+svgEl.addEventListener('click', e => {
+  const g = e.target.closest ? e.target.closest('.node') : null;
+  if (!g){ state.selectedId = null; render(); renderPanels(); return; }
+  const id = g.getAttribute('data-id');
+  state.selectedId = (state.selectedId === id) ? null : id;
+  render(); renderPanels();
+});
+
+/* ============================ 8. 图例 / 选项 / 规格面板 ============================ */
+
+const legendEl  = document.getElementById('legend');
+const optionsEl = document.getElementById('options');
+
+function renderLegend(){
+  const items = STATES.map(s =>
+    '<span><i style="background:' + s.color + '"></i>' +
+    (s.key === 'idle' ? 'idle 空闲/无数据 ' : '') +
+    (s.key === 'easy' ? '&lt;10% ' : '') + (s.key === 'tired' ? '≥10% ' : '') +
+    (s.key === 'exhausted' ? '≥20% ' : '') + (s.key === 'critical' ? '≥40% ' : '') +
+    s.label + '（' + FRAME_PLAN[s.key] + ' 帧）</span>').join('');
+  const extra = [
+    '<span><i style="background:' + RECYCLED_COLOR + ';opacity:.5"></i>回收 · 去饱和 + 虚线环 + "退群 HH:MM" + 循环冻在第 0 帧</span>',
+    '<span><i class="ring" style="width:11px;height:11px"></i>常驻成员 = 实线环</span>',
+    '<span><i class="ring" style="width:11px;height:11px;border-style:dashed"></i>派遣成员 = 虚线环</span>',
+    '<span><i style="background:#58a6ff"></i>点击 = 高亮到根的派遣链</span>',
+    '<span>槽 <b>32×32</b>（圆角 4）· 色环 <b>外扩 2px / 2px 宽</b> · 周期 <b>T = ' +
+      (PERIOD_MS / 1000).toFixed(1) + 's</b> · 取帧 <b>6 / 9 / 12</b>（都整除 36，相位在每个 T 对齐）</span>'
+  ];
+  legendEl.innerHTML = items + extra.join('');
+}
+
+function renderOptions(){
+  const v = VARIANTS[state.variant];
+  let html = '<span style="color:var(--dim2)">选项：</span>';
+  if (v.layout === 'layered-dag'){
+    html += '<label><input type="checkbox" id="stackChk"' + (state.recycleStack ? ' checked' : '') + '>' +
+            '回收节点收进右侧回收栈（默认留在原位去饱和）</label>';
+  } else {
+    html += '<span class="hint" style="margin:0">槽位尺寸规则：' +
+            (state.variant === 'B' ? '按状态 24 / 28 / 32 / 40 / 48' : '固定 32×32') + '（换 variant 比较）</span>';
+  }
+  html += '<span class="hint" style="margin:0">· 节点里是<b>占位塔奇克马</b>，方槽不做圆形裁切；成员表头像位由另一个组件负责（名字 + 右下角五色状态点）</span>';
+  optionsEl.innerHTML = html;
+  const chk = document.getElementById('stackChk');
+  if (chk) chk.addEventListener('change', e => {
+    state.recycleStack = e.target.checked;
+    render(); renderPanels();
+  });
+}
+
+function specJson(){
+  const v = VARIANTS[state.variant];
+  const kindCounts = { resident:0, dispatched:0, recycled:0 };
+  state.nodes.forEach(n => { kindCounts[n.kind]++; });
+  const stateCounts = {};
+  STATES.forEach(s => { stateCounts[s.key] = 0; });
+  state.nodes.forEach(n => { stateCounts[stateKeyOf(n)]++; });
+  return {
+    variant: v.key,
+    layout: v.layout,
+    nodeCount: state.nodes.length,
+    kinds: kindCounts,
+    spriteSlot: { width: SLOT_BASE, height: SLOT_BASE, rx: SLOT_RX, crop:'square',
+                  note:'方形精灵槽，不做圆形裁切',
+                  ring: { gap: RING_GAP, width: RING_WIDTH, note:'色环外扩 2px、2px 宽' } },
+    sizeRule: v.size,
+    loop: { tag:'loop', frames: LOOP_FRAMES, atlasWidth: LOOP_FRAMES * SLOT_BASE,
+            periodMs: PERIOD_MS, clockMs: Number(CLOCK_MS.toFixed(2)),
+            framePlan: FRAME_PLAN,
+            note:'所有档位共用周期 T；各档取 6/9/12 帧（都整除 36）→ 100/133.3/200ms 每帧，相位在每个 T 对齐' },
+    stateEncoding: v.stateEncoding,
+    states: STATES.map(s => ({ key:s.key, label:s.label, color:s.color, tier:s.tier,
+                              min: s.tier ? (TIERS.indexOf(s) === 0 ? 0 : TIERS[TIERS.indexOf(s)-1].max) : null,
+                              note:s.note || '' })),
+    stateCounts: stateCounts,
+    contextWindowLabel: WINDOW_LABEL,
+    edges: v.edges,
+    recycling: v.layout === 'layered-dag' ? (state.recycleStack ? 'stack-right' : 'inline-desaturated') : 'inline-desaturated',
+    selectedId: state.selectedId,
+    highlightedDispatchChain: state.selectedId ? chainOf(state.selectedId).list : [],
+    spriteAsset: state.atlas ? (state.atlas.source || '美术素材') : '占位塔奇克马',
+    animation: { mode: state.anim, mainThreadLoadMs: state.load },
+    measurements: state.measurements
+  };
+}
+
+function contractMd(){
+  const v = VARIANTS[state.variant];
+  const sizeLine = (v.size.rule === 'fixed')
+    ? '**固定 32×32，不编码状态**（避免"越累越大 = 越重要"的误读）'
+    : '⚠️ 反例：按状态编码 `24 / 28 / 32 / 40 / 48`（idle / easy / tired / exhausted / critical）—— 契约已否决，只在"读图测试"里当反面对照';
+  const layoutLine = (v.layout === 'radial')
+    ? '星系图（中心-辐条）：派遣深度 0 的常驻成员在内环 `r=96`，每深一层 +104；子节点角度跟随父节点聚集'
+    : '分层 DAG：按派遣深度成列（列间距 200px，行距 78px），边为贝塞尔 + 箭头；回收节点' +
+      (state.recycleStack ? '**收进右侧独立回收栈**' : '**留在原深度列内去饱和**');
+  const measured = state.measurements.length
+    ? state.measurements.map(m =>
+        '- `' + m.nodes + ' 节点` · ' + m.anim + ' · 主线程加压 ' + m.load + 'ms/帧 → **' +
+        m.fps + ' fps**（最差帧 ' + m.worst + 'ms，掉帧 ' + m.dropped + '）').join('\n')
+    : '- （未记录：在 demo 页压力测试面板里选节点数 + 动画模式 + 加压，点“记录这组数字”）';
+  return [
+    '### 派遣网络图规格（variant ' + v.key + ' · ' + v.name + '）',
+    '',
+    '- **布局**：' + layoutLine,
+    '- **节点 = 精灵槽**：**32×32 方形槽**（圆角 `4`），**不做圆形裁切**；槽内播塔奇克马的一个 12 帧循环（当前素材：' +
+      (state.atlas ? (state.atlas.source || '美术素材') : '占位塔奇克马') + '）',
+    '- **状态色环**：槽**外扩 2px** 画一条 **2px 宽**的色环（另在槽底叠 12% 同色底纹）；五档固定 hex：',
+    '  - `idle` 空闲 `#58a6ff` —— 判据：**没有在跑的会话** 或 **拿不到占用数据**（owner 口径"没停顿"：不留未知档、不留静止态）',
+    '  - `<10%` 轻松 `#3fb950`',
+    '  - `≥10%` 累了 `#d29922`',
+    '  - `≥20%` 超累 `#f0883e`',
+    '  - `≥40%` 要累死了 `#f85149`',
+    '  - 阈值可调（默认 `10 / 20 / 40`）；**必须同时记录上下文窗口大小**（`' + WINDOW_LABEL + '` 是主流默认）',
+    '- **槽位尺寸规则**：' + sizeLine,
+    '- **取帧数与周期**：所有档位**共用同一个周期 `T = 1.2s`**；各档**取几帧**不同 —— ' +
+      '`idle 6 / easy 6 / tired 9 / exhausted 9 / critical 12`；每帧时长 = `T ÷ 帧数`（`200 / 200 / 133.3 / 133.3 / 100 ms`）；' +
+      '公共时钟 `T / 36 ≈ 33.3ms`。因为 `6 / 9 / 12` 都整除 36，**同屏所有精灵在每个 T 边界相位重新对齐**。' +
+      '美术只交**一个 tag `loop`、12 帧、384×32**（可选 P1 再加一支 `blink`）；9 帧按最近邻取、6 帧每隔一帧取，**不需要为每档多画形象**',
+    '- **成员类型区分**：常驻成员 = 实线环；派遣成员 = 虚线环（`4 3`）；**回收** = `' + RECYCLED_COLOR +
+      '` + 去饱和（`saturate(.15)`）+ 虚线环 + 槽下 `退群 HH:MM`，循环**冻在第 0 帧**（进程已结束）',
+    '- **边样式**：' + (v.edges.type === 'bezier-arrow' ? '贝塞尔曲线 + 末端箭头' : '直线') +
+      '，常态 `1.6px #3a4256`；高亮派遣链 `2.6px #58a6ff`；与回收节点相连的边为 `4 4` 虚线',
+    '- **悬停信息**：名字 / 成员类型 / 状态名 + `pct%` + 上下文窗口 `' + WINDOW_LABEL +
+      '` / 取几帧与周期 / 当前任务 / 派遣者 / 派遣深度 / 派遣于；回收额外显示 `退群 HH:MM`',
+    '- **点击**：高亮该节点到根的**派遣链**（其余压暗到 32%），再点取消',
+    '- **精灵不进成员表头像位**：成员表头像 = **由会话目标派生的名字 / 角色**，头像**右下角**一个五档色的**小圆点**表状态。' +
+      '本图节点是精灵唯一的大尺寸宿主。',
+    '- **动画**：精灵循环按上面的公共时钟推进（每帧改 SVG `<image>` 的 `x`，属主线程）；额外的脉冲装饰只许 CSS `transform` / `opacity`' +
+      '（Chromium 108 可合成属性），**禁止**动槽位几何 / `background-position`（主线程重绘，见 `docs/research/sprite-playback-contract.md` §3）',
+    '- **渲染预算**：' + v.budget,
+    '- **实测**（demo 页压力测试，rAF 计数器）：',
+    measured,
+    '  - 读数口径：主线程帧交付率；后台 / headless 窗口会被浏览器节流，数字不可比，**必须在前台真实窗口里读**',
+    ''
+  ].join('\n');
+}
+
+function renderPanels(){
+  const v = VARIANTS[state.variant];
+  document.getElementById('vTitle').textContent = v.title;
+  document.getElementById('vDesc').textContent = v.desc;
+  document.getElementById('specJson').textContent = JSON.stringify(specJson(), null, 2);
+  document.getElementById('contractMd').textContent = contractMd();
+  document.getElementById('readCard').classList.toggle('hidden', state.variant !== 'B');
+  document.getElementById('swLabel').textContent = v.short;
+  renderLegend();
+  renderOptions();
+  renderAnimButtons();
+}
+
+function renderAnimButtons(){
+  document.querySelectorAll('#animRow button').forEach(b => {
+    b.setAttribute('aria-pressed', b.getAttribute('data-anim') === state.anim ? 'true' : 'false');
+  });
+  document.getElementById('animWhy').textContent = (state.anim === 'transform')
+    ? '动画实现：CSS transform: scale()——Chromium 108 的可合成属性清单里有 transform，主线程被拖住时动画仍可能继续。'
+    : (state.anim === 'paint'
+        ? '动画实现：每帧改 SVG 精灵槽的 stroke-width——强制 Style + Paint（与 background-position 同类），主线程一卡就掉帧。'
+        : '动画：关闭。要测"安全动画上限"，先开 transform 脉冲再对比描边脉冲。');
+}
+
+/* ============================ 9. 压力测试循环 ============================ */
+
+const fpsEl = document.getElementById('fps');
+const worstEl = document.getElementById('worst');
+const droppedEl = document.getElementById('dropped');
+const samplesEl = document.getElementById('samples');
+const loadInput = document.getElementById('load');
+const loadVal = document.getElementById('loadVal');
+
+let lastT = 0, deltas = [];
+let lastFps = 0, lastWorst = 0, lastDropped = 0;
+
+function frameLoop(t){
+  const loadMs = state.load;
+  if (loadMs > 0){
+    const s = performance.now();
+    while (performance.now() - s < loadMs) { /* 注入主线程阻塞 */ }
+  }
+  // 精灵循环：所有节点共享周期 T（公共时钟），各档取帧数不同 → 相位在每个 T 重新对齐
+  if (spritePlan.length && !state.reducedMotion){
+    const phase = (t % PERIOD_MS) / PERIOD_MS;
+    for (let i = 0; i < spritePlan.length; i++){
+      const p = spritePlan[i];
+      const k = Math.min(p.frames.length - 1, Math.floor(phase * p.frames.length));
+      if (k === p.last) continue;
+      p.last = k;
+      p.el.setAttribute('x', -p.frames[k].x);
+      p.el.setAttribute('y', -p.frames[k].y);
+    }
+  }
+  if (state.anim === 'paint'){
+    const rects = svgEl.querySelectorAll('rect.slot-ring');
+    const amp = 1.6 * Math.sin(t / 380);
+    for (let i = 0; i < rects.length; i++){
+      const r = rects[i];
+      if (!r.__b){
+        r.__b = { sw:parseFloat(r.getAttribute('stroke-width')) || RING_WIDTH };
+      }
+      r.setAttribute('stroke-width', (r.__b.sw + amp).toFixed(2));
+    }
+  }
+  if (lastT){
+    const d = t - lastT;
+    deltas.push(d);
+    if (deltas.length > 90) deltas.shift();
+    const avg = deltas.reduce((a,b) => a + b, 0) / deltas.length;
+    let worst = 0, dropped = 0;
+    deltas.forEach(x => { if (x > worst) worst = x; if (x > 25) dropped++; });
+    fpsEl.textContent = (1000 / avg).toFixed(1);
+    worstEl.textContent = worst.toFixed(1) + ' ms';
+    droppedEl.textContent = String(dropped);
+    samplesEl.textContent = String(deltas.length);
+    lastFps = parseFloat((1000 / avg).toFixed(1));
+    lastWorst = parseFloat(worst.toFixed(1));
+    lastDropped = dropped;
+  }
+  lastT = t;
+  requestAnimationFrame(frameLoop);
+}
+
+loadInput.addEventListener('input', e => {
+  state.load = parseInt(e.target.value, 10) || 0;
+  loadVal.textContent = String(state.load);
+  deltas = [];
+});
+
+document.querySelectorAll('button[data-load]').forEach(b => {
+  b.addEventListener('click', () => {
+    const n = parseInt(b.getAttribute('data-load'), 10);
+    state.nodes = makeNodes(n);
+    state.selectedId = null;
+    deltas = [];
+    render(); renderPanels();
+  });
+});
+
+document.querySelectorAll('#animRow button').forEach(b => {
+  b.addEventListener('click', () => {
+    state.anim = b.getAttribute('data-anim');
+    deltas = [];
+    render();
+    renderAnimButtons();
+  });
+});
+
+document.getElementById('recordBtn').addEventListener('click', () => {
+  state.measurements.push({ nodes: state.nodes.length, anim: state.anim, load: state.load,
+                            fps: lastFps, worst: lastWorst, dropped: lastDropped });
+  if (state.measurements.length > 4) state.measurements.shift();
+  document.getElementById('recHint').textContent = '已记录 ' + state.measurements.length + ' 组';
+  renderPanels();
+});
+
+/* ============================ 10. 精灵素材投放（可选） ============================ */
+
+/* 契约只要**一个 tag `loop`**（12 帧，可选 P1 `blink`）。所以校验逻辑很轻：
+   能找到 tag `loop` 就用它；找不到但 JSON 里有 frames，就"全部帧即一个循环"并说清楚原因。 */
+function parseLoopAtlas(json){
+  const frames = [];
+  const raw = (json && Array.isArray(json.frames)) ? json.frames : [];
+  raw.forEach(f => {
+    if (f && f.frame && typeof f.frame.x === 'number')
+      frames.push({ x:f.frame.x, y:f.frame.y, w:f.frame.w, h:f.frame.h });
+  });
+  const tags = (json && json.meta && Array.isArray(json.meta.frameTags)) ? json.meta.frameTags : [];
+  const loopTag = tags.filter(t => t.name === LOOP_TAG)[0];
+  if (loopTag && typeof loopTag.from === 'number' && typeof loopTag.to === 'number'){
+    const loop = frames.slice(loopTag.from, loopTag.to + 1);
+    return { loop: loop, note: 'tag <code>' + LOOP_TAG + '</code>：帧 ' + loopTag.from + '..' + loopTag.to +
+             '（' + loop.length + ' 帧）' };
+  }
+  const why = tags.length
+    ? ('有 tag ' + tags.map(t => t.name).join(' / ') + '，但没有 <code>' + LOOP_TAG + '</code>')
+    : ('<code>meta.frameTags</code> 缺失：导出时漏了 <code>--list-tags</code>');
+  return { loop: frames.length ? frames.slice() : null,
+           note: why + ' → 按"全部帧即一个循环"处理（' + frames.length + ' 帧）' };
+}
+
+/* 只给了 atlas 没给 JSON：按契约的"横向一行 32px 帧"切 */
+function splitByWidth(img){
+  const n = Math.floor((img.naturalWidth || 0) / SLOT_BASE);
+  if (!n) return null;
+  return Array.from({ length: n }, (_, i) => ({ x: i * SLOT_BASE, y: 0, w: SLOT_BASE, h: SLOT_BASE }));
+}
+
+function loadPng(file){
+  return new Promise((res, rej) => {
+    const img = new Image();
+    img.onload = () => res(img);
+    img.onerror = rej;
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+function setAssetInfo(html){ document.getElementById('assetInfo').innerHTML = html; }
+
+async function handleFiles(files){
+  const list = Array.from(files || []);
+  if (!list.length) return;
+  const png = list.find(f => /\.(png|webp)$/i.test(f.name));
+  const jsn = list.find(f => /\.json$/i.test(f.name));
+  if (!png){ setAssetInfo('<b>只给了 JSON</b>：还需要 atlas.png 才能换图。'); return; }
+  try {
+    const img = await loadPng(png);
+    let loop = null, note = '';
+    if (jsn){
+      const parsed = parseLoopAtlas(JSON.parse(await jsn.text()));
+      loop = parsed.loop; note = parsed.note;
+    } else {
+      loop = splitByWidth(img);
+      note = '没有 JSON → 按"横向一行 ' + SLOT_BASE + 'px 帧"切（' + (loop ? loop.length : 0) + ' 帧）';
+    }
+    if (!loop || !loop.length){
+      setAssetInfo('<b>' + png.name + '</b>：没能解析出帧 → 继续用占位塔奇克马');
+      return;
+    }
+    state.atlas = { url: img.src, imgW: img.naturalWidth, imgH: img.naturalHeight,
+                    loop: loop, source: png.name };
+    setAssetInfo('<b>' + png.name + '</b> · atlas ' + img.naturalWidth + '×' + img.naturalHeight +
+                 ' · ' + note + (loop.length !== LOOP_FRAMES
+                    ? ' · <b>注意</b>：契约要求 12 帧，这份是 ' + loop.length + ' 帧' : ''));
+    render(); renderPanels();
+  } catch (err){
+    setAssetInfo('<b>读取失败</b>：' + (err && err.message ? err.message : err));
+  }
+}
+
+const assetRow = document.getElementById('assetRow');
+document.getElementById('pickBtn').addEventListener('click', e => { e.stopPropagation(); document.getElementById('filePng').click(); });
+assetRow.addEventListener('click', () => document.getElementById('filePng').click());
+document.getElementById('filePng').addEventListener('change', e => handleFiles(e.target.files));
+assetRow.addEventListener('dragover', e => { e.preventDefault(); assetRow.classList.add('over'); });
+assetRow.addEventListener('dragleave', () => assetRow.classList.remove('over'));
+assetRow.addEventListener('drop', e => { e.preventDefault(); assetRow.classList.remove('over'); handleFiles(e.dataTransfer.files); });
+document.getElementById('resetSprite').addEventListener('click', e => {
+  e.stopPropagation();
+  setPlaceholderAtlas();
+  render(); renderPanels();
+});
+
+/* ============================ 11. 读图测试（variant B） ============================ */
+
+function renderReadTest(){
+  const live = state.nodes.filter(n => n.kind !== 'recycled' && n.pct !== null && n.pct !== undefined);
+  const biggest = live.slice().sort((a,b) => b.pct - a.pct)[0];
+  const smallest = live.slice().sort((a,b) => a.pct - b.pct)[0];
+  document.getElementById('readChoices').innerHTML =
+    live.slice().sort((a,b) => b.pct - a.pct).slice(0,3).map(n =>
+      '<button class="ghost" data-pick="' + n.id + '">' + esc(n.name) + '（' + n.pct + '%）</button>').join('') +
+    '<button class="ghost" data-pick="none">说不清 / 一样大</button>';
+  document.getElementById('readAnswer').innerHTML = biggest && smallest
+    ? ('在 variant B 里，<b>最大的槽位 = pct 最高的那个</b>：<b>' + esc(biggest.name) + '</b>（' + biggest.pct + '% · ' +
+       stateMetaOf(biggest).label + '）。尺寸通道在其他图里通常表示"规模 / 产出 / 重要性"，这里它表示"快撑不住了"——' +
+       '视觉上的"最大"与语义上的"最糟"方向相反，这就是误读的来源。' +
+       '对照：<b>' + esc(smallest.name) + '</b>（' + smallest.pct + '% · ' + stateMetaOf(smallest) .label + '）被画得最小，' +
+       '而它才是"状态最好"的那个。按 ← 切到 variant A（槽位固定 32）对比一下：' +
+       '如果两个 variant 给你的"谁是主角"直觉不一样，就说明尺寸不该编码状态。')
+    : '数据不足，先重置节点。';
+  document.querySelectorAll('#readChoices button').forEach(b => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('#readChoices button').forEach(x => x.setAttribute('aria-pressed','false'));
+      b.setAttribute('aria-pressed','true');
+    });
+  });
+}
+document.getElementById('readReveal').addEventListener('click', () => {
+  document.getElementById('readAnswer').classList.toggle('hidden');
+});
+
+/* ============================ 12. variant 切换 ============================ */
+
+function setVariant(v, push){
+  if (ORDER.indexOf(v) < 0) v = 'A';
+  state.variant = v;
+  state.selectedId = null;
+  render();
+  renderPanels();
+  renderReadTest();
+  if (push !== false){
+    try { history.replaceState(null, '', '?variant=' + v); } catch (err) { /* file:// 下可能受限，忽略 */ }
+  }
+}
+document.getElementById('prev').addEventListener('click', () => {
+  setVariant(ORDER[(ORDER.indexOf(state.variant) + ORDER.length - 1) % ORDER.length]);
+});
+document.getElementById('next').addEventListener('click', () => {
+  setVariant(ORDER[(ORDER.indexOf(state.variant) + 1) % ORDER.length]);
+});
+window.addEventListener('keydown', e => {
+  const t = e.target;
+  const tag = t && t.tagName ? t.tagName.toLowerCase() : '';
+  const editable = tag === 'input' || tag === 'textarea' || tag === 'select' || (t && t.isContentEditable);
+  if (editable) return;
+  if (e.key === 'ArrowRight'){ e.preventDefault(); document.getElementById('next').click(); }
+  if (e.key === 'ArrowLeft'){ e.preventDefault(); document.getElementById('prev').click(); }
+});
+
+/* ============================ 13. 复制 ============================ */
+
+document.getElementById('copyBtn').addEventListener('click', () => {
+  const text = contractMd();
+  const hint = document.getElementById('copyHint');
+  const done = () => { hint.textContent = '已复制 ✓'; setTimeout(() => { hint.textContent = ''; }, 1500); };
+  const fallback = () => {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+      done();
+    } catch (err){ hint.textContent = '复制失败，请手动选中下面的文本'; }
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback);
+  else fallback();
+});
+
+/* ============================ 14. 启动 ============================ */
+
+(function boot(){
+  setPlaceholderAtlas();
+  const q = new URLSearchParams(location.search).get('variant');
+  setVariant(q || 'A', false);
+  requestAnimationFrame(frameLoop);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,25 @@
+# local messenger state
+.pi/
+.DS_Store
+
+# 根 package.json 无依赖；pnpm run 会生成空 lockfile 与占位 node_modules，不入库
+/pnpm-lock.yaml
+/node_modules/
+# 本 worktree 的 vendor 依赖软链（指主仓）。vendor 内 `node_modules/` 只匹配目录，
+# 软链是文件故守卫会把它当未记账新增——根级无斜杠条目同时盖住文件与目录。
+/vendor/teahouse/node_modules
+
+# 本机运维配置（#48）：每人一份，模板见 hive.config.example.json
+/hive.config.json
+
+
+# 本机 agent 工具状态，不入库
+/.afk/
+/.claude/
+/.codex/
+/.gemini/
+/.impeccable/
+/.opencode/
+/.playwright-cli/
+/.agents/skills/
+docs/poster/

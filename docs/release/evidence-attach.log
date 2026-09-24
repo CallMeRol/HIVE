@@ -1,0 +1,72 @@
+=== Hive #49 接入 rig ===
+claude adapter: /Users/rolex/Library/pnpm/global/v11/e743-19ff1c9403b-32a4f96dff0e4c6c/node_modules/@agentclientprotocol/claude-agent-acp/dist/index.js
+codex adapter : /tmp/acp-sdk-probe/node_modules/@agentclientprotocol/codex-acp/dist/index.js
+PASS  AC2 探测把「adapter 缺失」报成独立失败项（不硬编码，按事实） — {"id":"adapter","label":"ACP adapter 在位","ok":false,"detail":"PATH 上没有 claude-agent-acp","hint":"全局装 adapter：`pnpm add -g @agentclientprotocol/claude-agent-acp`；装完 PATH 上会出现 `claude-agent-acp`；或把 PANTRY_AGENT_COMMAND 指向它的绝对路径"}
+PASS  AC2 探测把「CLI 缺失」报成独立失败项 — {"id":"cli","label":"claude CLI 在位","ok":false,"detail":"PATH 上没有 claude","hint":"装 claude CLI 并登录：跑 `claude` 并按提示登录（或用 `claude setup-token` 设长期 token），凭证留在本机 ~/.claude/"}
+PASS  AC2 探测把「认证缺失」报成独立失败项 — {"id":"auth","label":"既有认证可用","ok":false,"detail":"未找到 /nonexistent/.claude","hint":"跑 `claude` 并按提示登录（或用 `claude setup-token` 设长期 token），凭证留在本机 ~/.claude/"}
+PASS  AC2 每一个失败项都带可操作建议（hint 非空） — [{"id":"adapter","hint":"全局装 adapter：`pnpm add -g @agentclientprotocol/claude-agent-acp`；装完 PATH 上会出现 `claude-agent-acp`；或把 PANTRY_AGENT_COMMAND 指向它的绝对路径"},{"id":"cli","hint":"装 claude CLI 并登录：跑 `claude` 并按提示登录（或用 `claude setup-token` 设长期 token），凭证留在本机 ~/.claude/"},{"id":"auth","hint":"跑 `claude` 并按提示登录（或用 `claude setup-token` 设长期 token），凭证留在本机 ~/.claude/"},{"id":"handshake","hint":"先把上面标红的项修好，再点「重新探测」"}]
+PASS  AC2 前置项未过时不假装握手成功
+PASS  AC2 Node 一项不被 PATH 裁剪带偏（runner 的硬依赖必须报真实情况） — {"id":"node","label":"Node 运行时 ≥ 22","ok":true,"detail":"v22.23.2（node）","hint":""}
+PASS  AC2 握手失败转成带建议的失败项（不抛） — 前置项全过=true {"id":"handshake","label":"ACP 握手（拿模型与 permission 枚举）","ok":false,"detail":"模拟 adapter 握手失败","hint":"确认 adapter 能独立跑起来：`/Users/rolex/Library/pnpm/bin/claude-agent-acp`；若报认证失败，先跑 claude 完成登录"}
+PASS  AC2 模型枚举来自 adapter 的 configOptions — [{"value":"opus","name":"Opus","description":""},{"value":"haiku","name":"Haiku","description":""}]
+PASS  AC2 permission 枚举来自 adapter 的 mode 选项 — [{"value":"plan","name":"Plan","description":""}]
+PASS  AC1 成员名称为空被拒且给出建议 — {"ok":false,"error":"成员名称不能为空","hint":"给成员起个名字，便于在群里 @ 它"}
+PASS  AC1 工作目录不存在被拒且给出建议 — {"ok":false,"error":"工作目录不存在：/definitely/not/here","hint":"重新选一个存在的目录"}
+PASS  AC1 未知 runtime 被拒 — {"ok":false,"error":"未知 runtime：gpt5","hint":"可选：claude / codex"}
+PASS  AC3 端口分配避让已占用节点 — {"udp":18078,"tcp":18079,"api":18080}
+  [gui] [hangar] 账本根 /var/folders/d9/_0gbv97x6332wsrqhr4fcyj80000gn/T/hive-e2e-2p9qLa/gui/artifacts
+  [gui] [agent] 未配置 PANTRY_AGENT_COMMAND：节点作为普通群成员运行（被 @ 不回复）
+  [gui] [local-api] 监听 127.0.0.1:47880
+PASS  GUI 节点起得来 — nodeId=d3191201-167c-45ea-9b62-de14b825abf3
+PASS  AC1 renderer 暴露接入面（probeAttachTargets/attachAgent）
+--- GUI 节点输出（探测失败，摊开供排查）---
+  [gui] DevTools listening on ws://127.0.0.1:47881/devtools/browser/ed4b57fd-2344-488d-abb0-ddbb80531e89
+  [gui] [hangar] 账本根 /var/folders/d9/_0gbv97x6332wsrqhr4fcyj80000gn/T/hive-e2e-2p9qLa/gui/artifacts
+  [gui] [goal-guard] 未配置 HIVE_GOAL_GUARD_URL：目标守卫关闭
+  [gui] [recovery] 完成：接入 0/0 拉起，中断派遣 0 转待领取，幽灵 pending 0
+  [gui] [agent] 未配置 PANTRY_AGENT_COMMAND：节点作为普通群成员运行（被 @ 不回复）
+  [gui] [dispatch] 派遣服务已启用（POST /v1/dispatch）
+  [gui] [runner-watch] 异常退群探测已启用（每 1000ms 探活一次派遣成员 pid）
+  [gui] [agent-status] 本机生产者已停止上报
+  [gui] [local-api] 监听 127.0.0.1:47880
+--- end ---
+PASS  AC2 GUI 探测返回两种 runtime — ["claude","codex"]
+PASS  AC2 探测项覆盖 Node / adapter / CLI / 认证 / 握手 — ["node:true","adapter:true","cli:true","auth:true","handshake:true"]
+PASS  AC1 探测给出模型与 permission 可选项 — models=5 permissions=6
+  [gui] [local-api] SSE 订阅 +1（当前 1）
+  [gui] 2026-09-24 05:58:39.838 Electron[96748:201162355] error messaging the mach port for IMKCFRunLoopWakeUpReliable
+  [gui] [96750:0924/055844.337394:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [gui] [96750:0924/055844.339230:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [gui] [96750:0924/055845.224046:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [gui] [96750:0924/055845.360349:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [gui] [96750:0924/055846.550463:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [gui] [96750:0924/055846.657221:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [gui] [96750:0924/055848.667262:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [gui] [96750:0924/055848.668479:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [gui] [96750:0924/055849.442195:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [gui] [96750:0924/055849.463992:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [gui] [96750:0924/055850.230411:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [gui] [96750:0924/055850.365288:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [gui] [96750:0924/055851.470791:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [gui] [96750:0924/055851.471577:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [gui] [96750:0924/055851.561317:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [gui] [96750:0924/055851.661960:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [gui] [96750:0924/055853.671766:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [gui] [96750:0924/055853.674265:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [gui] [96750:0924/055855.595541:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [gui] [96750:0924/055855.969372:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [gui] [96750:0924/055856.476297:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [gui] [96750:0924/055856.476751:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [gui] [96750:0924/055900.601394:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [gui] [96750:0924/055900.973653:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [gui] [96750:0924/055902.716535:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [gui] [96750:0924/055902.920436:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [gui] [96750:0924/055907.725030:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+  [gui] [96750:0924/055907.926755:ERROR:ssl_client_socket_impl.cc(982)] handshake failed; returned -1, SSL error code 1, net_error -100
+FAIL  AC3 claude 接入成功（起独立节点 + 校验身份） — {"ok":false,"memberId":"claude-1790200716001-17978","nodeId":"","apiPort":17980,"error":"成员节点未在 30s 内就绪","hint":"看节点日志 /var/folders/d9/_0gbv97x6332wsrqhr4fcyj80000gn/T/hive-e2e-2p9qLa/gui/members-nodes/claude-1790200716001-17978/node.log；常见原因：端口被占、adapter 路径失效、Node 版本不足"}
+FAIL  AC3 codex 探测就绪（可接入） — ["adapter:PATH 上没有 codex-acp","handshake:前置项未通过，未发起握手"]
+FAIL  AC1 已接入成员可被列出（含 runtime/模型/permission） — []
+  [gui] [local-api] 收到优雅退出请求
+数据目录保留在 /var/folders/d9/_0gbv97x6332wsrqhr4fcyj80000gn/T/hive-e2e-2p9qLa
+
+ATTACH E2E FAILED — 3 项（21 项断言）

@@ -1,0 +1,48 @@
+可执行文件：/Users/rolex/Documents/Codes/githubProject/MyProject/hive/vendor/teahouse/release/mac-arm64/Hive.app/Contents/MacOS/Hive（打包 .app）
+  [gui] [hangar] 账本根 /var/folders/d9/_0gbv97x6332wsrqhr4fcyj80000gn/T/hive-e2e-R7nxjw/gui/artifacts
+  [headless] [hangar] 账本根 /var/folders/d9/_0gbv97x6332wsrqhr4fcyj80000gn/T/hive-e2e-R7nxjw/headless/artifacts
+  [headless] [agent] 未配置 PANTRY_AGENT_COMMAND：节点作为普通群成员运行（被 @ 不回复）
+  [headless] [local-api] 监听 127.0.0.1:17890
+  [headless] [headless] up nodeId=a843a87e-30d8-4b6f-87c7-12be83fb575a udp=17878 tcp=17879 api=17890 agent=off
+  [gui] [agent] 未配置 PANTRY_AGENT_COMMAND：节点作为普通群成员运行（被 @ 不回复）
+  [gui] [local-api] 监听 127.0.0.1:27890
+PASS  headless local-api health 可用 — {"ok":true,"v":1,"nodeId":"a843a87e-30d8-4b6f-87c7-12be83fb575a","nick":"rolex","setupDone":false,"ports":{"udp":17878,"tcp":17879,"api":17890},"groups":0,"peers":1,"agent":"off","agentStatus":{"cap":"ag1","producer":"off","cached":0,"dropped":0},"pending":null,"claimable":{"autoDispatch":false,"tasks":[]},"goalGuard":{"enabled":false,"recentAudits":[]},"net":{"ok":true}}
+PASS  两节点身份不同
+PASS  health 报出 udp/tcp/api 端口 — {"udp":17878,"tcp":17879,"api":17890}
+PASS  headless 自检行打印 — [headless] up nodeId=a843a87e-30d8-4b6f-87c7-12be83fb575a udp=17878 tcp=17879 api=17890 agent=off
+PASS  AC1 干净数据目录生成 identity.json
+PASS  AC1 identity.json 的 nodeId 与 health 一致
+  [gui] [local-api] SSE 订阅 +1（当前 1）
+  [headless] [local-api] SSE 订阅 +1（当前 1）
+PASS  AC2 GUI 与 headless 互见 — ["a843a87e-30d8-4b6f-87c7-12be83fb575a"]
+PASS  AC1 GUI 首次启动即可建群 — a2aa80d6-9cb0-44c7-9ca4-818410f207bc
+PASS  AC2 GUI 发群消息成功 — {"id":"c5a335e1-ba96-4b43-965f-57f8daa42723","text":"hello from gui 1790197193740"}
+PASS  AC2 headless 收到 GUI 的群消息（SSE message.new） — {"messageId":"c5a335e1-ba96-4b43-965f-57f8daa42723","groupId":"a2aa80d6-9cb0-44c7-9ca4-818410f207bc","senderId":"5620a999-b831-450b-8708-68e74e6e4722","kind":"formal","text":"hello from gui 1790197193740"}
+PASS  message.new 信封字段完整 — {"v":1,"seq":1,"type":"message.new","ts":1790197193746,"data":{"messageId":"c5a335e1-ba96-4b43-965f-57f8daa42723","groupId":"a2aa80d6-9cb0-44c7-9ca4-818410f207bc","senderId":"5620a999-b831-450b-8708-68e74e6e4722","kind":"formal","text":"hello from gui 1790197193740"}}
+PASS  AC3 POST /v1/messages 返回 200 — status=200
+PASS  AC2 GUI 收到 headless 的群消息（SSE message.new） — {"messageId":"a554b3a6-4d5e-4e7d-99a6-d43d8c9de511","groupId":"a2aa80d6-9cb0-44c7-9ca4-818410f207bc","senderId":"a843a87e-30d8-4b6f-87c7-12be83fb575a","kind":"formal","text":"hello from headless 1790197193898"}
+PASS  message.new 的 senderId = headless
+PASS  SSE seq 逐流单调递增 — gui=[1] headless=[1]
+  [headless] [local-api] 收到优雅退出请求
+PASS  headless 优雅退出请求被接受（202） — status=202
+PASS  headless 进程退出 ≤3s — elapsed=39ms
+PASS  headless 退出后无残留进程（含 Helpers） — []
+  [gui] [local-api] 收到优雅退出请求
+PASS  gui 优雅退出请求被接受（202） — status=202
+PASS  gui 进程退出 ≤6s — elapsed=242ms
+PASS  gui 退出后无残留进程（含 Helpers） — []
+PASS  全部节点退出后无残留进程 — []
+  [gui] [hangar] 账本根 /var/folders/d9/_0gbv97x6332wsrqhr4fcyj80000gn/T/hive-e2e-R7nxjw/gui/artifacts
+  [gui] [agent] 未配置 PANTRY_AGENT_COMMAND：节点作为普通群成员运行（被 @ 不回复）
+  [gui] [local-api] 监听 127.0.0.1:27890
+PASS  AC4 重启拉起的确实是新进程 — pid 1005 → 1371
+PASS  AC4 重启后身份沿用同一 nodeId
+PASS  AC4 重启后群仍在 — groups=1
+PASS  AC4 重启后群成员完整 — 2
+PASS  AC4 重启后两条消息仍存在 — ["hello from gui 1790197193740","hello from headless 1790197193898"]
+  [gui] [local-api] 收到优雅退出请求
+PASS  gui#2 优雅退出请求被接受（202） — status=202
+PASS  gui#2 进程退出 ≤3s — elapsed=139ms
+PASS  gui#2 退出后无残留进程（含 Helpers） — []
+
+E2E OK（30 项断言）

@@ -1,0 +1,408 @@
+{
+  "upstream": {
+    "repository": "https://github.com/skyjt/teahouse.git",
+    "tag": "v0.60.2",
+    "commit": "f6607ff7120738e9c6e5b8e419151034e3ba1d06",
+    "commitDate": "2026-09-18T09:53:13+08:00",
+    "tagMessage": "v0.60.2：修复联系人资料同步与网段扫描可靠性",
+    "tagTarballUrl": "https://github.com/skyjt/teahouse/archive/refs/tags/v0.60.2.tar.gz",
+    "tagTarballSha256": null
+  },
+  "package": {
+    "name": "pantry",
+    "version": "0.60.2",
+    "productName": "Hive",
+    "electron": "22.3.27"
+  },
+  "license": "GPL-3.0-only",
+  "licenseFile": "vendor/teahouse/LICENSE",
+  "importedAt": "2026-09-23",
+  "excludedPaths": [
+    ".github/"
+  ],
+  "baseline": {
+    "generator": "git -C <upstream-clone> archive --format=tar <commit> > teahouse-baseline.tar && tar -xf teahouse-baseline.tar -C vendor/teahouse && rm -rf vendor/teahouse/.github",
+    "archiveName": "teahouse-baseline.tar",
+    "archiveAlgorithm": "sha256",
+    "archiveSha256": "5f3e005eea0d834a972cbc020931ca38e2f688755345d16b94caa627460d6fb9",
+    "archiveBytes": 16373760,
+    "note": "archive 含上游全部 505 个 tracked 文件；vendor 树 = archive 减去 .github/**（2 个文件）= 503 个文件。archiveSha256 对应解包前的完整 tar。",
+    "fileCount": 503,
+    "manifest": "vendor/.hive/baseline.sha256",
+    "recompute": "git clone https://github.com/skyjt/teahouse.git && git -C teahouse archive --format=tar f6607ff7120738e9c6e5b8e419151034e3ba1d06 | shasum -a 256"
+  },
+  "guard": {
+    "allowlist": "vendor/.hive/patch-allowlist.txt",
+    "checker": "scripts/check-vendor-patches.mjs",
+    "policy": "file-level, fail-closed; 白名单外任何修改/删除/新增均非零退出"
+  },
+  "patchSurface": {
+    "note": "已记账补丁面（文件级；白名单语义见 patch-allowlist.txt）",
+    "modifiedFiles": [
+      "src/main/index.ts",
+      "src/renderer/src/components/GroupPanel.vue",
+      "src/renderer/src/components/PeerList.vue",
+      "src/renderer/src/components/MessageRow.vue",
+      "src/renderer/src/ui/contact-presence.test.ts",
+      "src/shared/ipc.ts",
+      "src/preload/index.ts",
+      "src/i18n/en.ts",
+      "package.json",
+      "package-lock.json",
+      "src/renderer/src/styles/tokens.css",
+      "README.en.md",
+      "README.md",
+      "build/icons/linux/128x128.png",
+      "build/icons/linux/16x16.png",
+      "build/icons/linux/24x24.png",
+      "build/icons/linux/256x256.png",
+      "build/icons/linux/32x32.png",
+      "build/icons/linux/48x48.png",
+      "build/icons/linux/512x512.png",
+      "build/icons/linux/64x64.png",
+      "build/icons/linux/96x96.png",
+      "build/icons/pantry-logo-icon-master.png",
+      "build/icons/pantry-logo-icon.icns",
+      "build/icons/pantry-logo-icon.ico",
+      "build/icons/pantry-logo-icon.png",
+      "build/icons/window-icon.png",
+      "build/mac/zh-Hans.lproj/InfoPlist.strings",
+      "build/mac/zh_CN.lproj/InfoPlist.strings",
+      "scripts/gen-app-icons.mjs",
+      "scripts/gen-tray-icon.mjs",
+      "src/main/net/codec.test.ts",
+      "src/main/net/transfer.test.ts",
+      "src/main/notifications.test.ts",
+      "src/main/services/diagnostics-ui.ts",
+      "src/main/services/diagnostics.ts",
+      "src/main/services/files.test.ts",
+      "src/main/services/image-ocr-cache.test.ts",
+      "src/main/services/porter.ts",
+      "src/main/services/updater.test.ts",
+      "src/main/services/updater.ts",
+      "src/main/store/app-state.ts",
+      "src/main/windows/capture-support.ts",
+      "src/main/windows/settings-window.ts",
+      "src/main/windows/tray-badge.test.ts",
+      "src/main/windows/tray-badge.ts",
+      "src/main/windows/tray-icon.ts",
+      "src/main/windows/tray.test.ts",
+      "src/main/windows/tray.ts",
+      "src/renderer/index.html",
+      "src/renderer/src/App.vue",
+      "src/renderer/src/CaptureApp.vue",
+      "src/renderer/src/SettingsApp.vue",
+      "src/renderer/src/components/ConvList.vue",
+      "src/renderer/src/components/ForwardDialog.vue",
+      "src/renderer/src/components/ImageBubble.vue",
+      "src/renderer/src/components/ImageViewer.vue",
+      "src/renderer/src/components/PantryBrandLogo.vue",
+      "src/renderer/src/components/PkBubble.vue",
+      "src/renderer/src/components/SetupWizard.vue",
+      "src/renderer/src/ui/brand-icon-raster.test.ts",
+      "src/renderer/src/ui/capture-rendering.test.ts",
+      "src/renderer/src/ui/naive-theme.test.ts",
+      "src/renderer/src/ui/naive-theme.ts",
+      "src/renderer/src/ui/settings-depth.test.ts",
+      "src/renderer/src/utils/avatar.ts",
+      "src/renderer/src/utils/image-text-layer.test.ts",
+      "src/renderer/src/utils/ocr-client.test.ts"
+    ],
+    "newNamespaces": [
+      "src/main/local-api/",
+      "src/main/hive/",
+      "src/main/acp/",
+      "src/main/services/agent-status.ts"
+    ],
+    "newFiles": [
+      "src/main/services/formal-message.ts",
+      "src/main/services/session-ledger.ts",
+      "src/main/services/agent-bridge.ts",
+      "src/renderer/src/utils/markdown.ts",
+      "src/renderer/src/components/MessageBody.vue",
+      "build/icons/hive-tray-mono.png",
+      "src/renderer/src/assets/brand/hive-app-icon.png"
+    ],
+    "addedAt": "2026-09-23",
+    "ticket": "#44 / #46 / #47 / #49 / #50 / #52 / #53 / reskin / #64 / #25",
+    "byTicket": {
+      "#52": {
+        "modifiedFiles": [
+          "src/main/index.ts",
+          "src/main/local-api/server.ts",
+          "src/main/local-api/index.ts",
+          "src/shared/ipc.ts",
+          "src/preload/index.ts",
+          "scripts/check-renderer-bundles.mjs",
+          "package.json",
+          "package-lock.json"
+        ],
+        "newNamespaces": [],
+        "newFiles": [
+          "src/shared/hive-hangar.ts",
+          "scripts/copy-acp-runtime.mjs"
+        ],
+        "note": "机库读取面（src/main/hive/hangar.ts）+ 四只读端点与静态页面（src/main/local-api/hangar-page.ts）+ 独立窗口（src/main/hive/hangar-window.ts）—— 三者落在既有的 `new src/main/hive/**` 与 `new src/main/local-api/**` 目录条目内。清单里的 modifiedFiles 为**增量**：src/main/index.ts / src/shared/ipc.ts / src/preload/index.ts 此前已被 #44/#47/#53 记账，本票只在其上追加机库装配与两个 IPC；package.json/package-lock.json 本票未改（#46 已记账，此处随构建脚本一并列出以便复算）。**修正 #46 缺口**：runner.mjs / fake-acp-agent.mjs 是面向系统 node ≥22 的裸 .mjs，electron-vite 只编译 .ts，导致 out/main/acp/ 下从来没有 runner 入口 —— 任何真节点上 agent 链路都只会打印「找不到 runner 入口」并降级，机库因此永远拿不到过程数据。新增 scripts/copy-acp-runtime.mjs 并在 build 脚本里接线。"
+      },
+      "#46": {
+        "modifiedFiles": [
+          "src/renderer/src/components/MessageRow.vue",
+          "package.json",
+          "package-lock.json"
+        ],
+        "newNamespaces": [
+          "src/main/acp/"
+        ],
+        "newFiles": [
+          "src/main/services/formal-message.ts",
+          "src/main/services/session-ledger.ts",
+          "src/main/services/agent-bridge.ts",
+          "src/renderer/src/utils/markdown.ts",
+          "src/renderer/src/components/MessageBody.vue"
+        ],
+        "note": "官方 @agentclientprotocol/sdk@1.5.0 + Node≥22 runner 子进程；正式消息分条、session 账本、@→turn bridge；markdown-it + DOMPurify 渲染面。新增锁定依赖 @agentclientprotocol/sdk / zod / markdown-it / dompurify。遗留：renderer bundle 体积门未过（见 docs/vendor/teahouse.md 未决约束）。"
+      },
+      "#44": {
+        "modifiedFiles": [
+          "src/main/index.ts"
+        ],
+        "newNamespaces": [
+          "src/main/local-api/"
+        ],
+        "note": "headless 7 hunk + local-api 四端点"
+      },
+      "#47": {
+        "modifiedFiles": [
+          "src/renderer/src/components/PeerList.vue",
+          "src/renderer/src/ui/contact-presence.test.ts",
+          "src/shared/ipc.ts"
+        ],
+        "newNamespaces": [
+          "src/main/services/agent-status.ts"
+        ],
+        "note": "跨机 agent 状态通道：PeerList 绿/灰点→五档负担环；PeerView 增 burden 字段；新 service 收发/自校验/TTL。上游 codec/protocol 零改动（未知信封类型放行 + caps 加 ag1 位）。contact-presence.test.ts 的断言原样钉死了被本票替换的旧 DOM 字面量，按 #252 意图改为断言该分支仍存在。"
+      },
+      "#53": {
+        "modifiedFiles": [
+          "src/main/index.ts",
+          "src/renderer/src/components/GroupPanel.vue",
+          "src/shared/ipc.ts",
+          "src/preload/index.ts",
+          "src/i18n/en.ts"
+        ],
+        "newNamespaces": [
+          "src/main/hive/"
+        ],
+        "note": "成员主人登记表 + 移出/孤儿清理判权（复用既有 group:update 通道，不新开 IPC）；src/shared/hive-member.ts 为新增单文件（见白名单 new 条目）"
+      },
+      "#54": {
+        "modifiedFiles": [
+          "src/main/index.ts",
+          "src/main/hive/dispatch.ts",
+          "src/main/hive/dispatch-store.ts",
+          "src/main/local-api/server.ts",
+          "src/main/local-api/index.ts",
+          "src/shared/ipc.ts",
+          "src/preload/index.ts"
+        ],
+        "newNamespaces": [],
+        "newFiles": [
+          "src/main/hive/handover.ts",
+          "src/main/hive/handover.test.ts"
+        ],
+        "note": "交接与回收：handover.ts 纯函数解析七节 H2 + 产物三件套（绝对路径/sha256/复跑）并做磁盘 sha256 复验（fail-closed，#60 同源函数）；DispatchService.dispatch 增可选输入交接校验（handoverMarkdown，不过 = 拒绝派遣）；新增 DispatchService.reclaim（判权 spawnedBy → 输出交接校验 → 群内只发结论不泄露内容 → 底座 remove + 回查 → 撤登记硬删 → 机库归档 reclaim → quit 杀进程 + 撤接入账本 → releaseMemberSlot 释放 slot）；dispatch-store 增 recordOfMember/releaseMemberSlot；IPC hive:reclaim + preload reclaimHiveMember + local-api POST /v1/reclaim。全部落在已记账的 new src/main/hive/** 与 new src/main/local-api/** 目录条目内；modifiedFiles 为增量（index.ts/ipc.ts/preload 此前已记账）。"
+      },
+      "#49": {
+        "modifiedFiles": [
+          "src/main/index.ts",
+          "src/main/acp/protocol.ts",
+          "src/main/acp/runner.mjs",
+          "src/main/acp/session.ts",
+          "src/main/acp/index.ts",
+          "src/main/services/agent-bridge.ts",
+          "src/main/services/agent-status.ts",
+          "src/shared/ipc.ts",
+          "src/preload/index.ts",
+          "src/i18n/en.ts",
+          "src/renderer/src/components/GroupPanel.vue"
+        ],
+        "newNamespaces": [],
+        "newFiles": ["src/renderer/src/components/AgentAttachDialog.vue"],
+        "note": "GUI 接入本机 Claude Code / Codex 为群成员（AC1–AC5）。新增 src/main/hive/agent-probe.ts + agent-attach.ts（均落在已记账的 new src/main/hive/** 命名空间内，无新增目录条目）。runner 私有协议加 probe 命令（一次性握手拿 adapter 自报的模型 / permission 枚举）；request_permission 从硬编码全拒改为按 --permission 策略应答（缺省仍 fail-closed）；agent-bridge 增 emitUsage 把 ACP usage_update 转成本机 burden 上报（仅在未设 PANTRY_AGENT_STATUS 时接管，不破坏 #47 的确定性生产器路径）。ipc.ts 增 3 条通道与接入 View 类型；preload 增 3 个方法；en.ts 补 19 条英文模板。AgentAttachDialog.vue 被懒加载（主窗静态闭包有硬预算），且不得 import store——否则 Rollup 会把 App.vue 的 facade 并进匿名共享块，四入口契约失效。遗留：renderer bundle 体积门未过（见 docs/vendor/teahouse.md 未决约束，基数在 main 上已是红的）。"
+      },
+      "#reskin": {
+        "modifiedFiles": [
+          "src/renderer/src/styles/tokens.css"
+        ],
+        "note": "Hive 品牌换肤：去 teahouse 绿（--primary #3d8b6b/#5bbf91）→ PRD §5 冻结的深蓝黑底 #0a0e17 + 强调红 #e94560。唯一杠杆点（33 组件引用 var(--primary*)）。同时清理绿调衍生灰（#222a25/#161c19/rgba(24,50,37) 等）。"
+      },
+      "#50": {
+        "modifiedFiles": [
+          "src/main/index.ts",
+          "src/main/services/agent-bridge.ts",
+          "src/shared/ipc.ts",
+          "src/preload/index.ts",
+          "src/i18n/en.ts",
+          "src/renderer/src/components/ChatPane.vue",
+          "electron.vite.config.ts",
+          "src/renderer/src/styles/tokens.css"
+        ],
+        "newFiles": [
+          "src/main/hive/pending-core.ts",
+          "src/main/hive/pending-core.test.ts",
+          "src/main/hive/pending-service.ts",
+          "src/main/hive/pending-gate.ts",
+          "src/renderer/src/stores/hive-pending.ts",
+          "src/renderer/src/components/HivePendingBar.vue"
+        ],
+        "note": "pending 收集期（每成员最多一个、永不自动过期）+ 确认键（默认主人、逐人放权、fail-closed）+ 聚合 prompt 恰好发送一次 + 会话目标冻结。持久化 <userData>/hive/pending.json；SSE/IPC 事件 pending.updated（契约表冻结 type）。开关 PANTRY_PENDING=1（默认关 = #46 直通行为不变）。另：同步 main 的 Hive 品牌换肤（tokens.css，#e94560/#0a0e17）与 electron.vite.config.ts 的 acp 静态脚本拷贝。"
+      },
+      "#64": {
+        "modifiedFiles": [
+          "src/i18n/en.ts",
+          "src/main/index.ts",
+          "src/main/services/diagnostics.ts",
+          "src/main/services/diagnostics-ui.ts",
+          "src/main/services/porter.ts",
+          "src/main/store/app-state.ts",
+          "src/main/windows/capture-support.ts",
+          "src/main/windows/settings-window.ts",
+          "src/main/windows/tray.ts",
+          "src/main/windows/tray-badge.ts",
+          "src/main/windows/tray-icon.ts",
+          "src/main/services/updater.ts",
+          "src/renderer/index.html",
+          "src/renderer/src/App.vue",
+          "src/renderer/src/SettingsApp.vue",
+          "src/renderer/src/components/SetupWizard.vue",
+          "src/renderer/src/components/PantryBrandLogo.vue",
+          "src/renderer/src/ui/naive-theme.ts",
+          "src/renderer/src/utils/avatar.ts",
+          "src/renderer/src/CaptureApp.vue",
+          "src/renderer/src/components/ConvList.vue",
+          "src/renderer/src/components/ForwardDialog.vue",
+          "src/renderer/src/components/ImageBubble.vue",
+          "src/renderer/src/components/ImageViewer.vue",
+          "src/renderer/src/components/PkBubble.vue",
+          "scripts/gen-app-icons.mjs",
+          "scripts/gen-tray-icon.mjs",
+          "package.json",
+          "package-lock.json",
+          "build/icons/pantry-logo-icon-master.png",
+          "build/icons/pantry-logo-icon.png",
+          "build/icons/pantry-logo-icon.ico",
+          "build/icons/pantry-logo-icon.icns",
+          "build/icons/window-icon.png",
+          "build/icons/linux/16x16.png",
+          "build/icons/linux/24x24.png",
+          "build/icons/linux/32x32.png",
+          "build/icons/linux/48x48.png",
+          "build/icons/linux/64x64.png",
+          "build/icons/linux/96x96.png",
+          "build/icons/linux/128x128.png",
+          "build/icons/linux/256x256.png",
+          "build/icons/linux/512x512.png",
+          "build/mac/zh_CN.lproj/InfoPlist.strings",
+          "build/mac/zh-Hans.lproj/InfoPlist.strings",
+          "src/main/services/updater.test.ts",
+          "src/main/services/files.test.ts",
+          "src/main/net/codec.test.ts",
+          "src/main/notifications.test.ts",
+          "src/main/windows/tray.test.ts",
+          "src/main/windows/tray-badge.test.ts",
+          "src/renderer/src/ui/naive-theme.test.ts",
+          "src/renderer/src/ui/capture-rendering.test.ts",
+          "src/renderer/src/ui/settings-depth.test.ts",
+          "src/renderer/src/ui/brand-icon-raster.test.ts",
+          "src/renderer/src/utils/image-text-layer.test.ts",
+          "src/renderer/src/utils/ocr-client.test.ts",
+          "src/main/services/image-ocr-cache.test.ts",
+          "src/main/net/transfer.test.ts",
+          "README.md",
+          "README.en.md"
+        ],
+        "newFiles": [
+          "src/renderer/src/assets/brand/hive-app-icon.png",
+          "build/icons/hive-tray-mono.png"
+        ],
+        "note": "Hive 品牌改造：品牌名与 logo 全量去 teahouse。界面字符串「茶话间」→「Hive」、i18n en.ts value 侧 Teahouse→Hive、productName→Hive（连带产物名 Hive-*、updater 匹配、mac CFBundle、Linux desktop、NSIS shortcut 同步）；美术交付 docs/poster/icon1x1.png 转 1024 RGBA 圆角母版 → .ico/.icns/renderer 256 位图 + Linux hicolor 全档；托盘单色源改由位图派生的 build/icons/hive-tray-mono.png（不再消费上游绿色剪影 SVG）；绿调衍生 rgba（组件内硬编码的 #3d8b6b/#5bbf91 系描边底影）按同语义映射到 Hive 红/中性黑；Naive UI 主题 overrides 与头像首色「茶青」一并换 Hive。app.setName(Hive) 使 userData 目录改名，defaultFileDir 同步 documents/hive。测试断言按 #64 意图更新，未删除任何用例（864 例全绿）。"
+      },
+      "#57": {
+        "modifiedFiles": [
+          "src/main/index.ts",
+          "src/shared/ipc.ts",
+          "src/preload/index.ts",
+          "src/i18n/en.ts",
+          "src/renderer/src/App.vue",
+          "src/renderer/src/components/PeerList.vue",
+          "src/renderer/src/components/PantryIcon.vue",
+          "src/renderer/src/ui/naive-theme.ts",
+          "src/renderer/src/ui/naive-theme.test.ts",
+          "src/renderer/src/CaptureApp.vue",
+          "src/renderer/src/ui/capture-rendering.test.ts"
+        ],
+        "newFiles": [
+          "src/renderer/src/components/DispatchNetwork.vue",
+          "src/renderer/src/assets/hive/state/sleep.gif",
+          "src/renderer/src/assets/hive/state/ease.gif",
+          "src/renderer/src/assets/hive/state/tired.gif",
+          "src/renderer/src/assets/hive/state/super_tired.gif",
+          "src/renderer/src/assets/hive/state/ran_out.gif"
+        ],
+        "note": "成员表派遣面（目标/派遣者/深度/主人/权限，PeerView.hive）+ 星系派遣网络图（契约 §B variant A：深度成环、常驻实线/派遣虚线、名字恒显、回收即消失、点击开机库）。五档 GIF 从 docs/UI-draft/state 落位 assets/hive/state（A4 文件名冻结）。PeerList 状态点从行尾负担环改回头像右下角（修 #47 偏差，视觉规范 §4）。另：清 naive-theme/CaptureApp 残留 teahouse 绿（#reskin 收尾）。"
+      },
+      "#60": {
+        "modifiedFiles": [
+          "src/main/index.ts",
+          "src/main/hive/dispatch.ts",
+          "src/main/hive/handover.ts",
+          "src/main/hive/handover.test.ts",
+          "src/main/services/agent-bridge.ts",
+          "src/main/services/session-ledger.ts",
+          "src/main/local-api/server.ts",
+          "src/main/local-api/index.ts",
+          "src/renderer/src/components/PeerList.vue"
+        ],
+        "newNamespaces": [],
+        "newFiles": [],
+        "note": "损坏交接拒绝接手（fail-closed）：handover.ts 增 handoverRejectText/HandoffEvidence；DispatchService 输入交接拒绝时群内可见 + 落盘 artifacts/handoffs/ 交子节点 HIVE_HANDOFF_PATH；agent-bridge handoffGate 开工前复验（缺失/sha256 不匹配 = 零实质输出 + 拒绝文案 + handover 账本行）；输出交接（reclaim）失败同样群内拒绝 + 机库证据；local-api POST /v1/dispatch 透传 handover；session-ledger 增 handover kind。全部落在已记账路径（hive/**、local-api/**、path index/bridge/PeerList/session-ledger）；PeerList 仅改注释（五档环→状态点）。"
+      },
+      "#59": {
+        "modifiedFiles": [
+          "src/main/index.ts",
+          "src/main/hive/dispatch.ts",
+          "src/main/hive/dispatch-store.ts",
+          "src/main/hive/recovery.ts",
+          "src/main/local-api/index.ts",
+          "src/shared/ipc.ts",
+          "src/preload/index.ts",
+          "src/renderer/src/components/ChatPane.vue",
+          "src/renderer/src/components/HivePendingBar.vue"
+        ],
+        "newNamespaces": [],
+        "newFiles": [
+          "src/main/hive/abnormal-exit.ts",
+          "src/main/hive/abnormal-exit.test.ts",
+          "src/main/hive/dispatch-claim.test.ts",
+          "src/shared/hive-claimable.ts",
+          "src/renderer/src/stores/hive-claimable.ts",
+          "src/renderer/src/components/HiveClaimableBar.vue"
+        ],
+        "note": "runner 猝死 → 异常退群 + 任务回待领取（#59）。要点：①派遣账本 DispatchRecord 增记可选 `pids`（与 memberIds 逐位对齐，只增字段，迁移规则 1：旧账本无此列即不参与探活，不会被误判猝死）；②新增 `abnormal-exit.ts`：以「pid 已不存在 **且** 账本仍记作 started」为猝死判据（离线 ≠ 猝死），1s 节拍轮询，结算走 `DispatchStore.markAbnormal`（幂等，slot 归还、不伪装活跃）；③异常退群走 `⚠ 异常退群` 群文本 + @原主人 + `member.lifecycle(abnormal)` + `dispatch.event(claimable)`，与正常退群（底座 leave 系统事件）明确不同；④人工补派入口 `DispatchService.claimAndDispatch`（默认不自动补派：无任何自动路径调用它；仅原主人可补，前置拒绝时回滚 claim 以免任务卡成幽灵）；⑤GUI 面：`hive:claimable-list` / `hive:claim-now` 两个 IPC + HiveClaimableBar 面板（Hive 红 #e94560 / 深蓝 token，与 pending 药丸并列）；local-api health 增 `claimable: { autoDispatch: false, tasks[] }` 供 e2e 与现场观察。`src/main/local-api/index.ts` 本次入账是补记：该文件已被 `new src/main/local-api/**` 目录条目覆盖，本票只在其 health 投影上追加 `claimable` 字段。另修正一处视觉失效：#50 的 HivePendingBar 与本票新面板都写了 `var(--border)` / `var(--surface)`，而 tokens.css 里从未定义这两个变量（真实名是 `--line` / `--bg-list`），导致边框与面板底色实际不生效；本票一并改为真实 token（VISUAL-SPEC §4「已知偏差：遇到就修」）。审查后修了三处真实缺陷：①**正常终结从不结算账本** —— `outcome='started'` 是「该成员此刻该活着」的唯一凭据，正常退群不回写会让猝死探活在下一拍（≤1s）把刚正常退出的成员判成猝死（群里冒假 `⚠ 异常退群` + 幽灵待领取），与 AC2 直接冲突；新增 `DispatchStore.markSettled` / `recordForMember`，在 #53 移出收口（`finishHiveMemberRemove`）回写，并新增 `outcome='settled'`。②**`slots` 与 `memberIds` 未逐位对齐**（#56 遗留）—— 原用 `begin.slots.slice(0, memberIds.length)`，而 `begin.slots` 是连续预留段、`memberIds` 只收成功者，`count=3` 且第 1 个失败时实占 `[2,3]` 却记成 `[1,2]`：回收释放别人的段、自己那段永不归还，并使 #59 的 pids 探活按 index **摘错同批还活着的成员**；改为记录实际 `usedSlots`。③`settleFailed` 会用同一 dispatchId 整条覆盖已 `started` 的记录（1:N 部分失败时冲掉活成员的 memberIds/pids/slots）—— 缺省改为只补记 reason，仅 #58 恢复路径显式传 `replaceStarted: true`。另收口三处 fail-closed 缺口：record 快照缺失时退回登记表 groupId（不再静默跳过硬删除）、底座拒绝 remove 走 `recordAudit` 留痕、猝死成员定位改用 `target.dispatchId` 而非 `recordFor` 首条匹配（同一成员出现在多条 started 记录时会 @ 错主人）。"
+      },
+      "#25": {
+        "modifiedFiles": [
+          "src/main/index.ts",
+          "src/main/hive/agent-attach.ts",
+          "package.json"
+        ],
+        "newNamespaces": [],
+        "newFiles": [
+          "src/main/hive/packaged-paths.ts",
+          "src/main/hive/packaged-paths.test.ts"
+        ],
+        "note": "packaged APP 执行不了 asar 内的 ACP runner（#62 发布验收发现的缺口）。根因三条，均实测确证：①electron-builder 未配 asarUnpack → app.asar.unpacked/ 下只有 better-sqlite3，runner.mjs/fake-acp-agent.mjs 全被封在 app.asar 内；②runner 按 ADR-0004 必须跑在系统 node ≥22 子进程里，而 node 读不穿 asar（归档是文件不是目录）→ spawn 必然失败；③app.getAppPath() 在打包态返回 app.asar（文件），以它当 spawn cwd 直接 ENOTDIR（已实测），派遣/接入起的成员节点全部起不来。修法：package.json 的 build.asarUnpack 增 out/main/acp/**、node_modules/@agentclientprotocol/sdk/**、node_modules/zod/**（后两者是 runner 的加载期依赖：runner 与 fake peer 都 await import SDK，SDK 的 zod.gen.js 又 require zod/v4）；新增 src/main/hive/packaged-paths.ts 收敛两条纯映射（unpackedPath：asar 内路径 → app.asar.unpacked 对应位置；appCwdDir：打包态退到 Resources 目录）——独立成模块是为了能无 Electron 单测；index.ts 的 dispatch spawn cwd 与接入 spawnNode cwd 改用 appCwdDir，runnerDir() 改用 appCwdDir + resolveRunnerDir 的 unpacked 映射；agent-attach.ts 的 resolveRunnerDir 先试 unpackedPath(候选) 再试原候选（dev 态前者不命中、原样回落）。新增 scripts/hive-asar-e2e.mjs（15 项断言）在真打包产物上黑盒验证：unpacked 里 runner/SDK/zod 齐备、主进程不报「找不到 runner 入口」、GUI @ 成员后 fake peer 真完成一次 turn 且正式回复进群 —— 既有各条 e2e 全跑 dev 产物（源码树无 asar），这条路径此前完全无覆盖，这正是缺口能活到发布验收的原因。"
+      }
+    }
+  }
+}
