@@ -15,7 +15,10 @@ const DEFAULT_ROOT_BUDGETS = {
   // 因此 out/ 与打包产物都停在 #46 之前的状态（agent 链路随之从未真正跑起来）。
   // #52 的机库按钮另加约 473B，故一并抬到 802 KiB，留约 300B 余量。
   // 契约未变：仍以「800 KiB 量级」的静态闭包为上限，只是把 #46 的实际增量记进预算。
-  'App.vue': { js: 802 * 1024, css: 116 * 1024 },
+  // #49 补记：#27 三栏工作（ConvDetails 槽位接线 + AvatarMark 等）落地后实测 832564B，
+  // 再次越过 802 KiB（821248B）。抬到 816 KiB（835584B），余约 3 KiB。CSS 闭包随同一批
+  // 工作实测 121754B，预算 116 → 120 KiB（122880B）。
+  'App.vue': { js: 816 * 1024, css: 120 * 1024 },
   'SettingsApp.vue': { js: 704 * 1024, css: 40 * 1024 },
   'CaptureApp.vue': { js: 112 * 1024, css: 12 * 1024 },
   'ImageViewerApp.vue': { js: 160 * 1024, css: 20 * 1024 }
@@ -25,6 +28,20 @@ function sourceBaseName(key, item) {
   const source = String(item?.src ?? key).replace(/\\/g, '/')
   const parts = source.split('/')
   return parts[parts.length - 1]
+}
+
+/**
+ * 动态入口的根组件归属判定。
+ *
+ * vite 5.4 的 manifest 对动态入口有两种形态：多数给 `src/XxxApp.vue` 这样的源键；但若该
+ * 模块同时被其他入口共享，chunk 会被合并成 `_Xxx-<hash>.js` 共享块，manifest 里就只剩
+ * `name` 字段还带着源组件名（如 `{ name: "App", isDynamicEntry: true }`）。两种形态都
+ * 认（Hive #49 实测：主 App.vue 走的就是共享块形态），否则守卫会对合法产物误报。
+ */
+function matchesRoot(key, item, rootName) {
+  if (sourceBaseName(key, item) === rootName) return true
+  const name = String(item?.name ?? '')
+  return name === rootName.replace(/\.vue$/, '') && item?.isDynamicEntry === true
 }
 
 function readManifest(path, errors) {
@@ -130,7 +147,7 @@ export function checkRendererBundles({
 
   for (const rootName of REQUIRED_ROOTS) {
     const matches = Object.entries(manifest)
-      .filter(([key, item]) => sourceBaseName(key, item) === rootName)
+      .filter(([key, item]) => matchesRoot(key, item, rootName))
     if (matches.length !== 1) {
       errors.push(`${rootName} 必须且只能有一个 manifest 动态入口，当前为 ${matches.length} 个`)
       continue

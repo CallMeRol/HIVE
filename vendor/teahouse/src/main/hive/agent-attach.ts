@@ -145,8 +145,8 @@ export function removeAttachedMember(file: AttachStateFile, memberId: string): A
 export function allocatePorts(
   used: Array<{ udp: number; tcp: number; api: number }>,
   base = { udp: 17878, tcp: 17879, api: 17880 },
-  /** 端口是否被本机任意进程占用（注入以便单测；缺省视为不占用）。 */
-  isTaken: (port: number) => boolean = () => false
+  /** 本机实际被占的端口集合（分配前由调用方异步批量探得；缺省视为无）。 */
+  takenNow: Set<number> = new Set()
 ): { udp: number; tcp: number; api: number } {
   const takenUdp = new Set(used.map((u) => u.udp))
   const takenTcp = new Set(used.map((u) => u.tcp))
@@ -162,9 +162,47 @@ export function allocatePorts(
       throw new Error('端口已用尽：本机接入的成员过多，先移出不再使用的成员')
     }
     if (takenUdp.has(udp) || takenTcp.has(tcp) || takenApi.has(api)) continue
-    if (isTaken(udp) || isTaken(tcp) || isTaken(api)) continue
+    // 端口带是连续步进的：三个端口同带，任一实占整带让开（isTaken 口径既判 tcp 也判 udp）。
+    if (takenNow.has(udp) || takenNow.has(tcp) || takenNow.has(api)) continue
     return { udp, tcp, api }
   }
+}
+
+/**
+ * 分配前的实占探测：把候选端口带按 launcher 节拍逐带探过去（每带三个端口），直到探出
+ * 一整带全空闲的为止，把这一带的端口集交给 `allocatePorts`。
+ *
+ * 为什么是「先批量探、再同步选」而不是在选端口循环里逐个探：探测本身要异步等事件
+ * （同步探测在 Node 16 下会泄漏端口 —— 探测者把空闲端口占死在自己进程里），而探测是
+ * 低频接入动作，多探几带的开销可忽略；换来的是「探过的端口绝不会被本进程持有」。
+ */
+export async function probeTakenPorts(
+  used: Array<{ udp: number; tcp: number; api: number }>,
+  base: { udp: number; tcp: number; api: number },
+  isTaken: (port: number) => Promise<boolean>,
+  maxBands = 64
+): Promise<Set<number>> {
+  const takenUdp = new Set(used.map((u) => u.udp))
+  const takenTcp = new Set(used.map((u) => u.tcp))
+  const takenApi = new Set(used.map((u) => u.api))
+  for (let step = 1; step <= maxBands; step += 1) {
+    const udp = base.udp + 100 * step
+    const tcp = base.tcp + 100 * step
+    const api = base.api + 100 * step
+    if (udp > 65535 || tcp > 65535 || api > 65535) break
+    // 账本/现有节点已声明的端口不用探（必然让开）；只实探尚未声明的。
+    const toProbe = [...new Set([udp, tcp, api])].filter(
+      (p) => !takenUdp.has(p) && !takenTcp.has(p) && !takenApi.has(p)
+    )
+    const results = await Promise.all(toProbe.map(async (p) => [p, await isTaken(p)] as const))
+    const takenNow = new Set(results.filter(([, taken]) => taken).map(([p]) => p))
+    if (takenNow.size === 0) return new Set()
+    // 这一带有实占：整带记入并继续探下一带。
+    for (const p of [udp, tcp, api]) takenNow.add(p)
+    return probeTakenPorts(used, { udp: base.udp + 100 * step, tcp: base.tcp + 100 * step, api: base.api + 100 * step }, isTaken, maxBands - step)
+      .then((rest) => new Set([...takenNow, ...rest]))
+  }
+  return new Set()
 }
 
 // ---------- 校验 ----------
@@ -289,8 +327,11 @@ export interface AttachDeps {
    * 这种「幽灵成员」正是 #53 判权表的反例。
    */
   unregisterMember(memberId: string): void
-  /** 端口是否被本机占用（缺省用真实探测，注入以便单测）。 */
-  isPortTaken?(port: number): boolean
+  /**
+   * 端口是否被本机占用（缺省用真实探测，注入以便单测）。**异步**：bind 的失败在 Node
+   * 里是异步 emit 的，同步探测既收不到「被占」也挡不住「探完泄漏」（#49 live 实测）。
+   */
+  isPortTaken?(port: number): Promise<boolean>
   /** 本机现有接入成员的端口（避让用）。 */
   existingPorts(): Array<{ udp: number; tcp: number; api: number }>
   log?(line: string): void
@@ -356,7 +397,7 @@ export async function attachMember(input: unknown, deps: AttachDeps): Promise<At
 
   const nodeExe = deps.nodeExe() || findExecutable('node') || 'node'
   const state = readAttachState(statePath)
-  const isTaken = deps.isPortTaken ?? (() => false)
+  const isTaken = deps.isPortTaken ?? (async () => false)
 
   let ports: { udp: number; tcp: number; api: number }
   try {
@@ -364,7 +405,10 @@ export async function attachMember(input: unknown, deps: AttachDeps): Promise<At
       ...deps.existingPorts(),
       ...state.members.map((m) => ({ udp: m.udpPort, tcp: m.tcpPort, api: m.apiPort }))
     ]
-    ports = allocatePorts(usedPorts, undefined, isTaken)
+    // 先批量实探候选端口带，再同步选：探测必须异步等事件（同步版在 Node 16 会把
+    // 空闲端口泄漏成占用），不能塞进选端口的同步循环里。
+    const takenNow = await probeTakenPorts(usedPorts, { udp: 17878, tcp: 17879, api: 17880 }, isTaken)
+    ports = allocatePorts(usedPorts, undefined, takenNow)
   } catch (err) {
     return { ...invalid, runtime: request.runtime, error: String((err as Error).message), hint: '先移出不再使用的成员，腾出端口' }
   }

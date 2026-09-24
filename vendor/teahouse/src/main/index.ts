@@ -34,9 +34,7 @@ import {
 import { copyFile, mkdir, readFile, stat, writeFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import { spawn } from 'node:child_process'
-import { createServer as createNetServer } from 'node:net'
 import { request } from 'node:http'
-import { createSocket as createUdpSocket } from 'node:dgram'
 import { basename, extname, join, resolve } from 'node:path'
 import {
   DEFAULT_CAPTURE_SHORTCUT,
@@ -284,29 +282,10 @@ const HEADLESS = process.env['PANTRY_HEADLESS'] === '1'
 
 // ---------- #49 接入用的小工具 ----------
 
-/** TCP 端口是否被占（bind 失败即被占）。同步语义：接入是低频动作，不值得为它引入异步状态机。 */
-function tcpPortTaken(port: number): boolean {
-  const server = createNetServer()
-  try {
-    server.listen(port, '127.0.0.1')
-    server.close()
-    return false
-  } catch {
-    return true
-  }
-}
-
-/** UDP 端口是否被占（同 tcpPortTaken 的口径）。 */
-function udpPortTaken(port: number): boolean {
-  const socket = createUdpSocket('udp4')
-  try {
-    socket.bind(port, '127.0.0.1')
-    socket.close()
-    return false
-  } catch {
-    return true
-  }
-}
+// 端口实占探测抽到 hive/port-probe（零依赖可单测；同步探测在 Node 16 的两条坑已在
+// port-probe.test.ts 锁死 —— 这里只 re-export 给装配点用）。
+import { portTaken } from './hive/port-probe'
+export { portTaken }
 
 /**
  * 探测一个刚起来的成员节点是否就绪：health 可用且报出 nodeId。
@@ -1021,17 +1000,6 @@ if (!gotLock) {
   /** 目标成员此刻是否可达（与 `health.peers` 同一判活口径）。 */
   function memberOnline(nodeId: string): boolean {
     return registry?.get(nodeId)?.online === true
-  }
-
-  /** 端口是否已被本机某个进程占用（接入前避让，别硬上）。 */
-  function portTaken(port: number): boolean {
-    if (port <= 0) return false
-    try {
-      // UDP 与 TCP 都试：底座同时开两种端口，任一被占都不该复用。
-      return udpPortTaken(port) || tcpPortTaken(port)
-    } catch {
-      return false
-    }
   }
 
   /**
