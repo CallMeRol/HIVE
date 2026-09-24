@@ -2,8 +2,8 @@
 
 GitHub: —（本会话直接发布）
 
-Status: in-progress
-Implementation: running（agent-attach.ts 编排已改，单测/e2e 断言已落）
+Status: needs-triage
+Implementation: merged（e2e claude 全链路 PASS；AC5/codex 失败项为 #30 与本机环境问题，见 Comments）
 Blocked by:
 
 ## What to build
