@@ -402,6 +402,22 @@
           "src/main/hive/packaged-paths.test.ts"
         ],
         "note": "packaged APP 执行不了 asar 内的 ACP runner（#62 发布验收发现的缺口）。根因三条，均实测确证：①electron-builder 未配 asarUnpack → app.asar.unpacked/ 下只有 better-sqlite3，runner.mjs/fake-acp-agent.mjs 全被封在 app.asar 内；②runner 按 ADR-0004 必须跑在系统 node ≥22 子进程里，而 node 读不穿 asar（归档是文件不是目录）→ spawn 必然失败；③app.getAppPath() 在打包态返回 app.asar（文件），以它当 spawn cwd 直接 ENOTDIR（已实测），派遣/接入起的成员节点全部起不来。修法：package.json 的 build.asarUnpack 增 out/main/acp/**、node_modules/@agentclientprotocol/sdk/**、node_modules/zod/**（后两者是 runner 的加载期依赖：runner 与 fake peer 都 await import SDK，SDK 的 zod.gen.js 又 require zod/v4）；新增 src/main/hive/packaged-paths.ts 收敛两条纯映射（unpackedPath：asar 内路径 → app.asar.unpacked 对应位置；appCwdDir：打包态退到 Resources 目录）——独立成模块是为了能无 Electron 单测；index.ts 的 dispatch spawn cwd 与接入 spawnNode cwd 改用 appCwdDir，runnerDir() 改用 appCwdDir + resolveRunnerDir 的 unpacked 映射；agent-attach.ts 的 resolveRunnerDir 先试 unpackedPath(候选) 再试原候选（dev 态前者不命中、原样回落）。新增 scripts/hive-asar-e2e.mjs（15 项断言）在真打包产物上黑盒验证：unpacked 里 runner/SDK/zod 齐备、主进程不报「找不到 runner 入口」、GUI @ 成员后 fake peer 真完成一次 turn 且正式回复进群 —— 既有各条 e2e 全跑 dev 产物（源码树无 asar），这条路径此前完全无覆盖，这正是缺口能活到发布验收的原因。"
+      },
+      "#27": {
+        "modifiedFiles": [
+          "src/renderer/src/App.vue",
+          "src/renderer/src/components/ChatPane.vue",
+          "src/renderer/src/components/ConvList.vue",
+          "src/renderer/src/components/MessageRow.vue",
+          "src/renderer/src/components/AvatarMark.vue",
+          "src/renderer/src/components/PeerList.vue",
+          "src/i18n/en.ts"
+        ],
+        "newNamespaces": [],
+        "newFiles": [
+          "src/renderer/src/components/ConvDetails.vue"
+        ],
+        "note": "主界面像素级复刻 UI-draft 三栏布局与五档状态点（唯一 seam：renderer 展示层，零行为变化、零新增 IPC）。①A 面 shell：.list 272→208px 使 rail 68+list 208=276px 落在设计稿 260–280px 区间，密度靠缩行距/字号/头像（ConvList 行 60→52px 头像 38→28、PeerList 行 38→34 头像 32→28），不砍行不删 rail 入口；App.vue 新增右栏槽位 .details（320px，仅 activeConv && tab==='chat' 挂载）。②B 面横幅：ChatPane 在 <header class=head> 之前插 .conv-banner（185px，PRD 冻结值，v-if=isGroup 仅群聊），素材 assets/hive/ref/channel-banner.png 构建 URL 引用（与 DispatchNetwork GIF 同模式），object-fit:cover + 底部 34px 渐隐接 --bg-chat，aria-hidden 纯装饰，图内已烧入频道名不叠 DOM 文字。③C 面右栏：新增 ConvDetails.vue（App.vue defineAsyncComponent 懒加载，不进主窗静态闭包），props convId/isGroup 内部自取 store；分节=会话信息（GroupView/PeerView 投影）+ Members（burden.eligible→内联五档色点 + burden.title 悬浮，否则 presence 绿/灰）+ Active agents（eligible 过滤 + BURDEN_TAGS 排序，无则整节隐藏）；Pinned 无数据源按 spec 省略不造假数据；文案复用既有 tr 键 + en.ts 补英文模板。④D 面状态点：AvatarMark 增可选 burdenColor prop，有值内联 style 盖绿/灰背景，未传时 style/title 绑定求值 undefined、DOM 与现状逐字节等价；MessageRow/ChatPane 群聊发送者、ConvList 单聊行按 burden?.eligible 才透传 color/title（渲染层零中文字面量，口径与通讯录一致）；PeerList 已合规不动。App.vue 接线级增量被既有 path 条目覆盖；AvatarMark/ConvDetails 为本次新记账。"
       }
     }
   }

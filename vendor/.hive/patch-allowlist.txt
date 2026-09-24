@@ -242,3 +242,13 @@ new src/renderer/src/assets/hive/ref/tachikoma-blue.png
 new src/renderer/src/assets/hive/ref/tachikoma-red-msg.png
 new src/renderer/src/assets/hive/ref/tachikoma-red.png
 new src/renderer/src/assets/hive/ref/tachikoma-white.png
+
+# Hive #27：主界面像素级复刻 UI-draft 三栏布局与五档状态点（renderer 展示层，唯一 seam）。
+# AvatarMark 增可选 burdenColor prop：有值内联 style 盖绿/灰 presence，未传时 DOM 逐字节等价。
+path src/renderer/src/components/AvatarMark.vue
+# 右栏详情面板（新组件，App.vue defineAsyncComponent 懒加载，不进主窗静态闭包）：
+# 会话信息 / Members（五档点或 presence 绿灰）/ Active agents（burden.eligible 过滤 + BURDEN_TAGS 排序）；
+# Pinned 无数据源，按 spec 省略不造假数据。文案复用既有 tr 键 + en.ts 补 2 条英文模板。
+new src/renderer/src/components/ConvDetails.vue
+# App.vue 右栏槽位接线（.details 320px，仅 activeConv && tab==='chat'）与左栏压宽
+# 已被既有 path src/renderer/src/App.vue 条目覆盖，无需新条目。
