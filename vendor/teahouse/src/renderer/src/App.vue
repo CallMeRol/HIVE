@@ -672,9 +672,13 @@ onUnmounted(() => {
       </div>
     </main>
 
-    <!-- Hive #27：右栏详情槽位——仅会话打开且为聊天页签时占位（空态/cabinet/network/contacts 不占位）；面板本体懒加载 -->
+    <!-- Hive #27：右栏详情槽位——仅会话打开且为聊天页签时占位（空态/cabinet/network/contacts 不占位）；面板本体懒加载。
+         convId 口径 'group:<id>' / 'single:<id>' 与 ChatPane 一致（ConvDetails 内注释同款）。 -->
     <aside v-if="chatStore.activeConv && tab === 'chat'" class="details">
-      <ConvDetails />
+      <ConvDetails
+        :conv-id="`${chatStore.activeConv.type === 'group' ? 'group' : 'single'}:${chatStore.activeConv.peerId}`"
+        :is-group="chatStore.activeConv.type === 'group'"
+      />
     </aside>
   </div>
 
