@@ -296,6 +296,9 @@ const farFromBottom = ref(false)
 
 const isGroup = computed(() => chatStore.activeConv?.type === 'group')
 
+// #27 B 面：仅群聊显示 185px 城市夜景横幅（图内已烧入频道名与标语，纯装饰）
+const bannerSrc = new URL('../assets/hive/ref/channel-banner.png', import.meta.url).href
+
 // 文件柜入口（决议 #273）：只在私聊出现；拿不到就明确说明原因，不给"点了没反应"的按钮
 const cabinetDisabledReason = computed(() => {
   const p = peer.value
@@ -1806,6 +1809,9 @@ async function onDrop(event: DragEvent): Promise<void> {
       </section>
     </div>
     <div v-if="dragging" class="drop-mask">{{ tr('松手发送给 {0}', { 0: peerName }) }}</div>
+    <div v-if="isGroup" class="conv-banner" aria-hidden="true">
+      <img :src="bannerSrc" alt="" draggable="false" />
+    </div>
     <header class="head">
       <div v-if="!isGroup && peer" ref="peerProfileScope" class="peer-profile-scope">
         <button
@@ -2274,6 +2280,28 @@ async function onDrop(event: DragEvent): Promise<void> {
   position: relative;
   overflow: hidden;
   isolation: isolate;
+}
+/* #27 B 面：群聊横幅（stage4 蓝图），横在 header 之上，flex column 首个固定高度块 */
+.conv-banner {
+  position: relative;
+  flex: 0 0 auto;
+  height: 185px;
+  overflow: hidden;
+  border-bottom: 1px solid var(--line);
+}
+.conv-banner img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  user-select: none;
+}
+.conv-banner::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 0;
+  height: 34px;
+  background: linear-gradient(to bottom, transparent, var(--bg-chat));
 }
 .drop-mask {
   position: absolute;
