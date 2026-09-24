@@ -197,8 +197,8 @@ function confirmRemove(): void {
   padding-bottom: 8px;
 }
 .list-summary {
-  height: 38px;
-  padding: 0 14px;
+  height: 34px;
+  padding: 0 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -225,6 +225,7 @@ function confirmRemove(): void {
   flex: 1;
   padding: 0 8px 10px;
 }
+/* Hive #27：左栏压宽（list 208px）后的密度调整——行高 60→52、头像 38→28、字号微降，不砍行 */
 .conv {
   width: 100%;
   border: 0;
@@ -234,10 +235,10 @@ function confirmRemove(): void {
   text-align: left;
   display: flex;
   align-items: center;
-  gap: 10px;
-  min-height: 60px;
+  gap: 8px;
+  min-height: 52px;
   margin: 2px 0;
-  padding: 10px;
+  padding: 8px;
   border-radius: 12px;
   cursor: pointer;
   transition:
@@ -285,14 +286,14 @@ function confirmRemove(): void {
   transform: scale(0.985);
 }
 .conv-avatar {
-  width: 38px;
-  height: 38px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   background: var(--primary);
   color: #fff;
   display: grid;
   place-items: center;
-  font-size: 15px;
+  font-size: 13px;
   flex-shrink: 0;
 }
 .conv-avatar.grp {
@@ -315,7 +316,7 @@ function confirmRemove(): void {
   gap: 8px;
 }
 .conv-name {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 550;
   white-space: nowrap;
   overflow: hidden;
@@ -335,13 +336,13 @@ function confirmRemove(): void {
   border-color: var(--text-3);
 }
 .conv-time {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--text-2);
   flex-shrink: 0;
 }
 .conv-preview {
   flex: 1;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-2);
   white-space: nowrap;
   overflow: hidden;

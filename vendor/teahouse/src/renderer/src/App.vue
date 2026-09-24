@@ -43,6 +43,8 @@ type Tab = 'chat' | 'contacts' | 'cabinet' | 'network'
 
 // Hive #57：派遣网络图懒加载（主窗静态闭包有硬预算，check:renderer-bundles）。
 const DispatchNetwork = defineAsyncComponent(() => import('./components/DispatchNetwork.vue'))
+// Hive #27：右栏详情面板懒加载（不进主窗静态闭包，与 DispatchNetwork 同策略）。
+const ConvDetails = defineAsyncComponent(() => import('./components/ConvDetails.vue'))
 
 const tab = ref<Tab>('chat')
 const searchQuery = ref('')
@@ -669,6 +671,11 @@ onUnmounted(() => {
         <p class="hint">{{ tr('在「通讯录」里选个人，开始第一句话') }}</p>
       </div>
     </main>
+
+    <!-- Hive #27：右栏详情槽位——仅会话打开且为聊天页签时占位（空态/cabinet/network/contacts 不占位）；面板本体懒加载 -->
+    <aside v-if="chatStore.activeConv && tab === 'chat'" class="details">
+      <ConvDetails />
+    </aside>
   </div>
 
   <!-- 全量刷新二次确认（决议 #197）：标题 + 一句摘要 + CIDR 列表，确认后才扫 -->
@@ -1276,7 +1283,9 @@ onUnmounted(() => {
 
 /* 栏② 列表 */
 .list {
-  width: 272px;
+  /* Hive #27：左栏视觉合并——rail 68px + list 208px = 276px，落在设计稿 260–280px 区间
+     （stage4 蓝图 --rail-w:260px 实现）；密度靠压缩行距/字号/头像，不砍行不删入口 */
+  width: 208px;
   background: var(--material-panel);
   border-right: 1px solid var(--line);
   box-shadow: 8px 0 26px rgba(0, 0, 0, 0.035), var(--highlight-edge);
@@ -1291,9 +1300,9 @@ onUnmounted(() => {
   height: 84px;
   flex: 0 0 84px;
   box-sizing: border-box;
-  padding: 36px 12px 10px;
+  padding: 36px 8px 10px;
   display: flex;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
   border-bottom: 1px solid var(--line);
 }
@@ -1302,9 +1311,10 @@ onUnmounted(() => {
   min-width: 0;
 }
 .new-group {
-  width: 32px;
-  height: 32px;
-  flex: 0 0 32px;
+  /* Hive #27：随列表压宽同步缩号，给搜索框让位 */
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
   color: var(--text-2);
 }
 .new-group:hover {
@@ -1356,6 +1366,15 @@ onUnmounted(() => {
 .hint {
   font-size: 12px;
   color: var(--text-3);
+}
+
+/* 栏④ 右栏详情（Hive #27）：固定 320px，仅会话打开时挂载；本体在 ConvDetails.vue 懒加载实现 */
+.details {
+  width: 320px;
+  flex: 0 0 320px;
+  border-left: 1px solid var(--line);
+  background: var(--material-panel);
+  overflow: hidden;
 }
 
 /* 全量刷新二次确认（决议 #197）：暖色警示标 + 精简文案（非删除红，提醒「留意代价」） */

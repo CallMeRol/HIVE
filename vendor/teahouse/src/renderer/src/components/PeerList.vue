@@ -197,8 +197,8 @@ function hiveMetaText(hive: NonNullable<PeerView['hive']>): string {
   padding-bottom: 8px;
 }
 .list-head {
-  height: 38px;
-  padding: 0 14px;
+  height: 34px;
+  padding: 0 12px;
   display: flex;
   align-items: center;
   font-size: 12px;
@@ -227,12 +227,12 @@ function hiveMetaText(hive: NonNullable<PeerView['hive']>): string {
   text-align: left;
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-height: 38px;
+  gap: 7px;
+  min-height: 34px;
   margin: 1px 0;
-  padding-top: 7px;
-  padding-bottom: 7px;
-  padding-right: 10px;
+  padding-top: 5px;
+  padding-bottom: 5px;
+  padding-right: 8px;
   border-radius: 10px;
   cursor: pointer;
   font-size: 13px;
@@ -266,18 +266,19 @@ function hiveMetaText(hive: NonNullable<PeerView['hive']>): string {
 .avatar-wrap {
   position: relative;
   flex-shrink: 0;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
 }
 .peer-avatar {
-  width: 32px;
-  height: 32px;
+  /* Hive #27：随列表压宽 32→28px，密度与 ConvList 行一致 */
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   background: var(--primary);
   color: #fff;
   display: grid;
   place-items: center;
-  font-size: 13px;
+  font-size: 12px;
   flex-shrink: 0;
 }
 .peer-avatar.off {
