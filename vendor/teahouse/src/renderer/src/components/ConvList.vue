@@ -128,6 +128,8 @@ function confirmRemove(): void {
             class="conv-avatar grp"
             :avatar-hash="groupsStore.byId[conv.peerId]?.avatarHash"
           />
+          <!-- #27：单聊行头像五档负担点（与消息流同规则，User Story 15）；
+               title 用主进程拼好的 burden.title（透传口径与通讯录一致）。群聊行（GroupAvatar）不接线。 -->
           <AvatarMark
             v-else
             class="conv-avatar"
@@ -135,6 +137,8 @@ function confirmRemove(): void {
             :avatar-hash="peersStore.byId(conv.peerId)?.avatarHash"
             :name="nickOf(conv.peerId)"
             :presence="(peersStore.byId(conv.peerId)?.online ?? false) ? 'online' : 'offline'"
+            :burden-color="peersStore.byId(conv.peerId)?.burden?.eligible ? peersStore.byId(conv.peerId)?.burden?.color : undefined"
+            :title="peersStore.byId(conv.peerId)?.burden?.eligible ? peersStore.byId(conv.peerId)?.burden?.title : undefined"
           />
           <span class="conv-main">
             <span class="row1">

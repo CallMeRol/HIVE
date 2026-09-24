@@ -27,6 +27,11 @@ const props = defineProps<{
   pkDisabledReason: string
   recallVisible: boolean
   recallDisabledReason: string
+  // #27 发送者五档负担点：仅群聊发送者 burden?.eligible 时由调用方（ChatPane）传入，
+  // 透传 burden.color / burden.title；不传则 AvatarMark 回落 presence 绿/灰（#57）。
+  // title 悬浮说明直接用主进程拼好的 burden.title，渲染层不新增中文字面量（User Story 14）。
+  senderBurdenColor?: string
+  senderBurdenTitle?: string
 }>()
 
 const emit = defineEmits<{
@@ -137,12 +142,17 @@ const replyMeta = computed((): ReplyMeta => {
     class="row"
     :class="[props.msg.isMine ? 'mine' : 'peer', { highlight: props.highlighted }]"
   >
+    <!-- #27：title 放在 AvatarMark 根（.avatar-mark 包住头像+状态点），
+         悬浮区域更大更易命中；未传 burdenColor 时该绑定求值 undefined，不输出 title 属性，
+         DOM 与现状逐字节等价。 -->
     <AvatarMark
       v-if="showGroupSender"
       class="msg-avatar"
       :avatar="props.senderAvatar"
       :avatar-hash="props.senderAvatarHash"
       :name="props.senderName"
+      :burden-color="props.senderBurdenColor"
+      :title="props.senderBurdenTitle"
     />
     <span class="message-stack">
       <span v-if="showGroupSender" class="sender">{{ props.senderName }}</span>

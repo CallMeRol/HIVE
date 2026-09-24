@@ -14,6 +14,12 @@ const props = defineProps<{
   // 不能用 boolean —— Vue 对未传的 Boolean prop 会强制转成 false（而非 undefined），
   // 会让"不想显示点"的调用方（如导航栏自己头像）也冒出一个灰点（决议 #85）。
   presence?: 'online' | 'offline'
+  // #27 五档负担色（PeerBurdenView.color 透传）：有值时内联 style 直接盖掉绿/灰背景，
+  // 否则保持 presence 绿/灰分支（#57）；两者都无则不显示点。
+  // 未传时 :style 求值为 undefined —— Vue 客户端渲染对 undefined 的 style 绑定
+  // 不落任何 style 属性（patchStyle 仅 removeAttribute 的 no-op），
+  // DOM 与本 prop 引入前逐字节等价（同一原则见上方 presence 决议 #85 注释）。
+  burdenColor?: string
 }>()
 
 const avatarsStore = useAvatarsStore()
@@ -52,9 +58,10 @@ watch(imageKey, () => {
       <span v-else class="avatar-initial">{{ avatarText(avatar, name) }}</span>
     </span>
     <span
-      v-if="presence"
+      v-if="presence || burdenColor"
       class="status-dot"
       :class="presence === 'online' ? 'is-online' : 'is-offline'"
+      :style="burdenColor ? { background: burdenColor } : undefined"
     ></span>
   </span>
 </template>

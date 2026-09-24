@@ -577,6 +577,18 @@ function senderAvatarHash(msg: MessageView): string {
   return peersStore.byId(msg.senderId)?.avatarHash ?? ''
 }
 
+// #27 五档负担点（消息流）：仅群聊发送者 burden?.eligible 时透传 color/title（User Story 12–14），
+// 否则不传 —— AvatarMark 回落 presence 绿/灰，不把「无数据」画成档位色。
+function senderBurdenColor(msg: MessageView): string | undefined {
+  const burden = peersStore.byId(msg.senderId)?.burden
+  return burden?.eligible ? burden.color : undefined
+}
+
+function senderBurdenTitle(msg: MessageView): string | undefined {
+  const burden = peersStore.byId(msg.senderId)?.burden
+  return burden?.eligible ? burden.title : undefined
+}
+
 const draftBytes = computed(() => new TextEncoder().encode(draft.value.trim()).length)
 const overUdpLimit = computed(() => draftBytes.value > TEXT_UDP_LIMIT)
 const overLimit = computed(() => draftBytes.value > TEXT_TCP_LIMIT)
@@ -1972,6 +1984,8 @@ async function onDrop(event: DragEvent): Promise<void> {
         :sender-name="senderName(msg)"
         :sender-avatar="senderAvatar(msg)"
         :sender-avatar-hash="senderAvatarHash(msg)"
+        :sender-burden-color="senderBurdenColor(msg)"
+        :sender-burden-title="senderBurdenTitle(msg)"
         :highlighted="msg.id === chatStore.highlightId"
         :can-send-pk="canSendPk"
         :pk-disabled-reason="pkDisabledReason"
