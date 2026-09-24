@@ -327,7 +327,60 @@ async function main() {
     )
     check2(`AC3 ${runtime} 成员出现在群成员表`, inGroup === true)
 
+    // #28：入群断言必须从**成员进程视角**做 —— GUI 群表「看似成功」掩盖不了成员自己
+    // groups=0 的缺口（幽灵 invite 的直接症状）。health 的 `groups` 计数是「真正进群」
+    // 的唯一权威信号，轮询成员 own local-api 直到 ≥1。
+    const memberGroups = await (async () => {
+      const deadline = Date.now() + 40000
+      for (;;) {
+        const h = await rig.health(attach.apiPort).catch(() => null)
+        if (h && h.groups >= 1) return h
+        if (Date.now() >= deadline) return h
+        await sleep(500)
+      }
+    })()
+    check2(
+      `AC3 ${runtime} 成员自身 health groups>=1（真正进群的权威信号）`,
+      (memberGroups?.groups ?? 0) >= 1,
+      `groups=${memberGroups?.groups} nodeId=${memberGroups?.nodeId}`
+    )
+
+    // #28：群成员表恰好包含该 nodeId（恰一次），且没有 memberId 形态（`<runtime>-<ts>-<port>`）
+    // 的幽灵条目 —— 锁死「memberId 被塞进群表」不再发生。
+    const ghostFree = await inGui(
+      `
+      const g = await window.pantry.getGroup(${JSON.stringify(groupId)});
+      if (!g) return null;
+      const ghost = g.members.filter(id => /^(claude|codex)-\\d+-\\d+$/.test(id));
+      const selfCount = g.members.filter(id => id === ${JSON.stringify(attach.nodeId)}).length;
+      return { members: g.members, selfCount, ghost };`,
+      { timeoutMs: 30000 }
+    )
+    check2(
+      `AC3 ${runtime} 群表恰好含该 nodeId（无幽灵 memberId 条目）`,
+      ghostFree?.selfCount === 1 && Array.isArray(ghostFree.ghost) && ghostFree.ghost.length === 0,
+      JSON.stringify(ghostFree)
+    )
+
     // ---- 真 turn：从 GUI 发一条 @ 它的消息，等它真回复 ----
+    // 发 @ 前必须等成员与主人直连就绪（health.peers>=1）：mentions 不落消息表，
+    // 经离线补发队列回放进来的 @ 永远不带 mentioned，bridge 不触发 turn（这是底座
+    // 的设计内行为，见 agent-bridge.ts 头注释）——rig 抢跑会把 turn 断言变成假失败。
+    const memberDirect = await (async () => {
+      const deadline = Date.now() + 60000
+      for (;;) {
+        const h = await rig.health(attach.apiPort).catch(() => null)
+        if (h && h.peers >= 1) return h
+        if (Date.now() >= deadline) return h
+        await sleep(500)
+      }
+    })()
+    check2(
+      `AC3 ${runtime} 成员与主人直连就绪（health.peers>=1，@ 走实时路径的前提）`,
+      (memberDirect?.peers ?? 0) >= 1,
+      `peers=${memberDirect?.peers}`
+    )
+
     const mentionText = `@${nick} 请用一句话回复：你已接入本群。`
     const sent = await inGui(
       `
@@ -422,23 +475,37 @@ async function main() {
       !/requestPermission|permissionMode|permission/.test(bridgeSrc),
       'bridge 源码不含 permission 处理'
     )
+    // 确认键断言只查**实现面**（代码行），bridge 头注释里对 #50 机制的合法描述不算
+    // 混用（#50 落地后这些注释就存在，纯字面匹配会永远假失败）。
+    const bridgeCode = bridgeSrc
+      .split('\n')
+      .filter((line) => !/^\s*(\/\/|\*|\/\*)/.test(line))
+      .join('\n')
     check2(
       'AC4 确认键（pending）不在本票实现范围内',
-      !/confirmKey|pendingConfirm|确认键/.test(bridgeSrc),
-      '检测到 bridge 里出现确认键逻辑则说明两面被混用'
+      !/confirmKey|pendingConfirm|确认键/.test(bridgeCode),
+      '检测到 bridge 代码行里出现确认键逻辑则说明两面被混用'
     )
 
     // ---- AC5：真实 usage 驱动负担 ----
-    const usageBurden = await rig.waitCdp(
-      GUI.cdp,
-      `
+    // waitCdp 超时会抛（rig 语义）；usage 链路属 #49 面、独立于本票（#28），挂了要
+    // 显式 FAIL 收场让 rig 跑完后续 runtime，不能整个 rig 崩掉。
+    let usageBurden = null
+    try {
+      usageBurden = await rig.waitCdp(
+        GUI.cdp,
+        `
       const peers = await window.pantry.getPeers();
       const p = peers.find(x => x.nodeId === ${JSON.stringify(attach.nodeId)});
       return p ? { eligible: p.burden?.eligible ?? null, tag: p.burden?.tag ?? null, pct: p.burden?.pct ?? null, sizeTokens: p.burden?.sizeTokens ?? null, stale: p.burden?.stale ?? null } : null;`,
-      (v) => v && v.eligible === true && v.stale === false && typeof v.pct === 'number',
-      `${runtime} 的负担行由真实 usage 驱动`,
-      90000
-    )
+        (v) => v && v.eligible === true && v.stale === false && typeof v.pct === 'number',
+        `${runtime} 的负担行由真实 usage 驱动`,
+        90000
+      )
+    } catch (err) {
+      console.log(`FAIL  AC5 ${runtime} 负担行等待异常（usage 链路独立问题）：${String(err?.message ?? err).slice(0, 120)}`)
+      failures += 1
+    }
     check2(
       `AC5 ${runtime} 成员行负担由真实 usage 驱动（pct/size 非空且非 stale）`,
       Boolean(usageBurden),

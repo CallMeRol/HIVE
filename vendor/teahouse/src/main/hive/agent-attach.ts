@@ -318,8 +318,14 @@ export interface AttachDeps {
   }): { pid: number; logPath: string }
   /** 该节点 local-api 的 health（用于校验身份确实起来了）。 */
   waitHealth(input: { dataDir: string; apiPort: number; timeoutMs: number }): Promise<{ nodeId: string } | null>
-  /** 把成员拉进群（走底座既有 invite，无权限门）。返回 false = 未进群。 */
+  /**
+   * 把成员拉进群（走底座既有 invite，无权限门）。返回 false = 未进群。
+   * 第二参传**群表成员 id**——调用点（attachMember）在 health 成功后传 `health.nodeId`，
+   * 传 memberId 形态就是幽灵制造（#28）。
+   */
   inviteToGroup(groupId: string, memberId: string): boolean
+  /** 终止已 spawn 的成员节点进程（回滚用；spawn 前失败不调）。 */
+  killMember(pid: number): void
   /** 登记成员主人（#53 的 register；ownerId = 本机 selfId）。 */
   registerMember(input: { memberId: string; ownerId: string; kind: 'resident'; groupId?: string }): void
   /**
@@ -418,36 +424,21 @@ export async function attachMember(input: unknown, deps: AttachDeps): Promise<At
   const dataDir = join(deps.dataRoot(), memberId)
 
   let spawned: { pid: number; logPath: string } | null = null
-  let invited = false
+  let registered = false
 
   try {
     // 1) 独立数据目录 + 完整字段集 config.json（#44 landmine 1）
     mkdirSync(dataDir, { recursive: true })
     deps.writeNodeConfig({ dataDir, nick: request.nick, udp: ports.udp, tcp: ports.tcp })
 
-    // 2) 先登记 + 拉进群，再起进程。
-    //    顺序有讲究：底座对未知群会走离线补发队列，先 invite 后 spawn 能消掉「已起未入群」
-    //    的中间态（ADR-0006 Decision「先 invite 后起」），也不需要回滚邀请。
+    // 2) 先登记（主人登记表记的是 Hive 本机账本，不是群表），再起进程。
     deps.registerMember({
       memberId,
       ownerId: deps.selfId(),
       kind: 'resident',
       ...(request.groupId ? { groupId: request.groupId } : {})
     })
-    if (request.groupId) {
-      invited = deps.inviteToGroup(request.groupId, memberId)
-      if (!invited) {
-        log(`[attach] 拉群失败：${request.groupId} ← ${memberId}`)
-        deps.unregisterMember(memberId)
-        return {
-          ...invalid,
-          runtime: request.runtime,
-          adapterPath,
-          error: `未能把成员拉进群 ${request.groupId}`,
-          hint: '确认这个群还在、且本节点仍在群里；或先在 GUI 里手动把成员加进群，再重试接入'
-        }
-      }
-    }
+    registered = true
 
     // 3) 起 headless 节点
     const peers = [
@@ -480,6 +471,34 @@ export async function attachMember(input: unknown, deps: AttachDeps): Promise<At
         apiPort: ports.api,
         error: `成员节点未在 ${HEALTH_TIMEOUT_MS / 1000}s 内就绪`,
         hint: `看节点日志 ${spawned.logPath}；常见原因：端口被占、adapter 路径失效、Node 版本不足`
+      }
+    }
+
+    // 5) 拉进群：**在 health 成功之后**、以 health 校验拿到的 nodeId 执行（#28）。
+    //    spawn 前 invite 只能拿到 memberId（`<runtime>-<ts>-<port>`），它不是任何节点的
+    //    nodeId——塞进群表就是一个永远无人认领的幽灵条目，成员自己 `groups=0`、收不到
+    //    群消息。此刻节点已在跑，invite 即收群 info，ADR-0006 消「已起未入群」中间态的
+    //    目的自动成立，且无幽灵。
+    if (request.groupId) {
+      const invited = deps.inviteToGroup(request.groupId, health.nodeId)
+      if (!invited) {
+        log(`[attach] 拉群失败：${request.groupId} ← ${health.nodeId}`)
+        // 全有或全无：撤登记 + 收掉子进程，不落接入账本。
+        deps.unregisterMember(memberId)
+        deps.killMember(spawned.pid)
+        return {
+          ...invalid,
+          runtime: request.runtime,
+          adapterPath,
+          memberId,
+          nodeId: health.nodeId,
+          dataDir,
+          udpPort: ports.udp,
+          tcpPort: ports.tcp,
+          apiPort: ports.api,
+          error: `未能把成员拉进群 ${request.groupId}`,
+          hint: '确认这个群还在、且本节点仍在群里；或先在 GUI 里手动把成员加进群，再重试接入'
+        }
       }
     }
 
@@ -519,8 +538,10 @@ export async function attachMember(input: unknown, deps: AttachDeps): Promise<At
   } catch (err) {
     const message = String((err as Error)?.message ?? err)
     log(`[attach] ${memberId} 失败：${message}`)
-    // 回滚：撤登记，不留幽灵成员（进程若已起由调用方的 down 路径收）。
-    if (invited) deps.unregisterMember(memberId)
+    // 回滚：撤登记，不留幽灵成员；进程若已起就地收掉（#28：killMember 由本编排负责，
+    // 不再指望调用方的 down 路径兜底）。
+    if (registered) deps.unregisterMember(memberId)
+    if (spawned) deps.killMember(spawned.pid)
     return {
       ...invalid,
       runtime: request.runtime,
@@ -532,7 +553,7 @@ export async function attachMember(input: unknown, deps: AttachDeps): Promise<At
       apiPort: ports.api,
       error: message,
       hint: spawned
-        ? `节点已起但接入未完成；先跑 \`pnpm run hive -- down\` 清干净，再看日志 ${spawned.logPath}`
+        ? `接入未完成，子进程已终止；详情看日志 ${spawned.logPath}`
         : '重开接入对话框重试；若反复失败，跑 `pnpm run hive -- doctor`'
     }
   }

@@ -283,9 +283,8 @@ const HEADLESS = process.env['PANTRY_HEADLESS'] === '1'
 // ---------- #49 接入用的小工具 ----------
 
 // 端口实占探测抽到 hive/port-probe（零依赖可单测；同步探测在 Node 16 的两条坑已在
-// port-probe.test.ts 锁死 —— 这里只 re-export 给装配点用）。
+// port-probe.test.ts 锁死）。装配点直接用它，不再经 re-export 中转。
 import { portTaken } from './hive/port-probe'
-export { portTaken }
 
 /**
  * 探测一个刚起来的成员节点是否就绪：health 可用且报出 nodeId。
@@ -1069,6 +1068,20 @@ if (!gotLock) {
       },
       inviteToGroup: (groupId, memberId) =>
         groups?.updateGroup(groupId, { kind: 'invite', memberIds: [memberId] }) !== null,
+      killMember: (pid) => {
+        // spawn 出去即 detached（自成进程组）：按组杀，再兜底单杀（与 dispatch 的 killNode 同口径）。
+        const { kill } = require('node:process') as typeof import('node:process')
+        try {
+          kill(-pid, 'SIGKILL')
+        } catch {
+          /* 组已不存在 */
+        }
+        try {
+          kill(pid, 'SIGKILL')
+        } catch {
+          /* 已退出 */
+        }
+      },
       registerMember: ({ memberId, ownerId, kind, groupId }) => {
         memberRegistry?.register({
           memberId,
@@ -1125,7 +1138,10 @@ if (!gotLock) {
               model: (record as { model: string }).model,
               permissionMode: (record as { permissionMode: string }).permissionMode,
               // 拉群走底座既有 invite：账本里不含 groupId，重启后由主人在 GUI 里补拉即可
-              // （不影响成员进程本身的恢复）。
+              // （不影响成员进程本身的恢复）。**边界（#28）**：首次接入是 health 后以
+              // nodeId invite（agent-attach 编排内），恢复重放走同一编排、但 groupId 恒为
+              // 空 —— 故恢复路径不做拉群，两处行为在编排函数内不分叉，仅此入参不同。
+              // 别把「重启后补拉」改回 spawn 前 invite：那会复刻幽灵条目（#28 机制链）。
               groupId: '',
               adapterPath: '',
               toolPermission: 'allow'
