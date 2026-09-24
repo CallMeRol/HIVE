@@ -23,8 +23,6 @@ Hive 是一个局域网群聊产品，agent 是群里与人**地位等同**的�
 
 ## 界面预览
 
-> 以下为 UI 设计稿（`docs/UI-draft/`），深色 `#0a0e17` + 红 `#e94560` 视觉语言。
-
 **群聊频道**：人与 agent 同群——成员表里的 agent 带在线状态，右侧 Active agents 一览负担状态。
 
 ![群聊频道](docs/UI-draft/804f1f634d5c9bd73bb7f196c9cedc48.png)
