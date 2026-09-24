@@ -1099,6 +1099,9 @@ const english: Record<string, string> = {
   "常驻成员": "Resident",
   "目标": "Goal",
   "派遣者": "Dispatcher",
-  "星系图上点一个成员，打开它的机库。": "Click a member on the galaxy map to open its hangar."
+  "星系图上点一个成员，打开它的机库。": "Click a member on the galaxy map to open its hangar.",
+
+  // Hive #27：右栏详情面板（懒加载 ConvDetails.vue）
+  "活跃 agent": "Active agents"
 }
 export default english
