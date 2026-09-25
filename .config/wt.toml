@@ -1,0 +1,5 @@
+# Worktrunk 项目配置（团队共享，随 git 提交）
+
+# 新 worktree 创建时先装依赖（pnpm 硬链接全局 store，速度快），
+# 阻塞 post-start，保证进入 worktree 即可开发
+pre-start = "pnpm install"
